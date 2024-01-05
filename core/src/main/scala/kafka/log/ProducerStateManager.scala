@@ -1,19 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package kafka.log
 
 import java.io.File
@@ -44,10 +28,10 @@ case class LastRecord(lastDataOffset: Option[Long], producerEpoch: Short)
 
 
 private[log] case class TxnMetadata(
-  producerId: Long,
-  firstOffset: LogOffsetMetadata,
-  var lastOffset: Option[Long] = None
-) {
+                                     producerId: Long,
+                                     firstOffset: LogOffsetMetadata,
+                                     var lastOffset: Option[Long] = None
+                                   ) {
   def this(producerId: Long, firstOffset: Long) = this(producerId, LogOffsetMetadata(firstOffset))
 
   override def toString: String = {
@@ -70,7 +54,8 @@ private[log] object ProducerStateEntry {
 }
 
 private[log] case class BatchMetadata(lastSeq: Int, lastOffset: Long, offsetDelta: Int, timestamp: Long) {
-  def firstSeq: Int =  DefaultRecordBatch.decrementSequence(lastSeq, offsetDelta)
+  def firstSeq: Int = DefaultRecordBatch.decrementSequence(lastSeq, offsetDelta)
+
   def firstOffset: Long = lastOffset - offsetDelta
 
   override def toString: String = {
@@ -101,7 +86,7 @@ private[log] class ProducerStateEntry(val producerId: Long,
 
   def lastDataOffset: Long = if (isEmpty) -1L else batchMetadata.last.lastOffset
 
-  def lastOffsetDelta : Int = if (isEmpty) 0 else batchMetadata.last.offsetDelta
+  def lastOffsetDelta: Int = if (isEmpty) 0 else batchMetadata.last.offsetDelta
 
   def isEmpty: Boolean = batchMetadata.isEmpty
 
@@ -138,7 +123,7 @@ private[log] class ProducerStateEntry(val producerId: Long,
 
   def findDuplicateBatch(batch: RecordBatch): Option[BatchMetadata] = {
     if (batch.producerEpoch != producerEpoch)
-       None
+      None
     else
       batchWithSequenceRange(batch.baseSequence, batch.lastSequence)
   }
@@ -168,15 +153,15 @@ private[log] class ProducerStateEntry(val producerId: Long,
  * sequence numbers and epochs of each new record. Additionally, this class accumulates transaction metadata
  * as the incoming records are validated.
  *
- * @param producerId The id of the producer appending to the log
- * @param currentEntry  The current entry associated with the producer id which contains metadata for a fixed number of
- *                      the most recent appends made by the producer. Validation of the first incoming append will
- *                      be made against the latest append in the current entry. New appends will replace older appends
- *                      in the current entry so that the space overhead is constant.
- * @param origin Indicates the origin of the append which implies the extent of validation. For example, offset
- *               commits, which originate from the group coordinator, do not have sequence numbers and therefore
- *               only producer epoch validation is done. Appends which come through replication are not validated
- *               (we assume the validation has already been done) and appends from clients require full validation.
+ * @param producerId   The id of the producer appending to the log
+ * @param currentEntry The current entry associated with the producer id which contains metadata for a fixed number of
+ *                     the most recent appends made by the producer. Validation of the first incoming append will
+ *                     be made against the latest append in the current entry. New appends will replace older appends
+ *                     in the current entry so that the space overhead is constant.
+ * @param origin       Indicates the origin of the append which implies the extent of validation. For example, offset
+ *                     commits, which originate from the group coordinator, do not have sequence numbers and therefore
+ *                     only producer epoch validation is done. Appends which come through replication are not validated
+ *                     (we assume the validation has already been done) and appends from clients require full validation.
  */
 private[log] class ProducerAppendInfo(val topicPartition: TopicPartition,
                                       val producerId: Long,
@@ -305,11 +290,11 @@ private[log] class ProducerAppendInfo(val topicPartition: TopicPartition,
   }
 
   def appendEndTxnMarker(
-    endTxnMarker: EndTransactionMarker,
-    producerEpoch: Short,
-    offset: Long,
-    timestamp: Long
-  ): Option[CompletedTxn] = {
+                          endTxnMarker: EndTransactionMarker,
+                          producerEpoch: Short,
+                          offset: Long,
+                          timestamp: Long
+                        ): Option[CompletedTxn] = {
     checkProducerEpoch(producerEpoch, offset)
     checkCoordinatorEpoch(endTxnMarker, offset)
 
@@ -387,7 +372,7 @@ object ProducerStateManager {
         throw new CorruptSnapshotException(s"Snapshot contained an unknown file version $version")
 
       val crc = struct.getUnsignedInt(CrcField)
-      val computedCrc =  Crc32C.compute(buffer, ProducerEntriesOffset, buffer.length - ProducerEntriesOffset)
+      val computedCrc = Crc32C.compute(buffer, ProducerEntriesOffset, buffer.length - ProducerEntriesOffset)
       if (crc != computedCrc)
         throw new CorruptSnapshotException(s"Snapshot is corrupt (CRC is no longer valid). " +
           s"Stored crc: $crc. Computed crc: $computedCrc")
@@ -485,6 +470,7 @@ class ProducerStateManager(val topicPartition: TopicPartition,
                            @volatile var _logDir: File,
                            val maxProducerIdExpirationMs: Int = 60 * 60 * 1000,
                            val time: Time = Time.SYSTEM) extends Logging {
+
   import ProducerStateManager._
   import java.util
 
@@ -798,7 +784,7 @@ class ProducerStateManager(val topicPartition: TopicPartition,
    */
   def lastStableOffset(completedTxn: CompletedTxn): Long = {
     val nextIncompleteTxn = ongoingTxns.values.asScala.find(_.producerId != completedTxn.producerId)
-    nextIncompleteTxn.map(_.firstOffset.messageOffset).getOrElse(completedTxn.lastOffset  + 1)
+    nextIncompleteTxn.map(_.firstOffset.messageOffset).getOrElse(completedTxn.lastOffset + 1)
   }
 
   /**
@@ -843,8 +829,8 @@ class ProducerStateManager(val topicPartition: TopicPartition,
    * ProducerStateManager, and renames the backing snapshot file to have the Log.DeletionSuffix.
    *
    * Note: This method is safe to use with async deletes. If a race occurs and the snapshot file
-   *       is deleted without this ProducerStateManager instance knowing, the resulting exception on
-   *       SnapshotFile rename will be ignored and None will be returned.
+   * is deleted without this ProducerStateManager instance knowing, the resulting exception on
+   * SnapshotFile rename will be ignored and None will be returned.
    */
   private[log] def removeAndMarkSnapshotForDeletion(snapshotOffset: Long): Option[SnapshotFile] = {
     Option(snapshots.remove(snapshotOffset)).flatMap { snapshot => {
@@ -869,8 +855,8 @@ class ProducerStateManager(val topicPartition: TopicPartition,
   }
 }
 
-case class SnapshotFile private[log] (@volatile private var _file: File,
-                                      offset: Long) extends Logging {
+case class SnapshotFile private[log](@volatile private var _file: File,
+                                     offset: Long) extends Logging {
   def deleteIfExists(): Boolean = {
     val deleted = Files.deleteIfExists(file.toPath)
     if (deleted) {

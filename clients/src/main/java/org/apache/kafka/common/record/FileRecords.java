@@ -1,19 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package org.apache.kafka.common.record;
 
 import org.apache.kafka.common.KafkaException;
@@ -93,6 +77,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
 
     /**
      * Get the underlying file.
+     *
      * @return The file
      */
     public File file() {
@@ -101,6 +86,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
 
     /**
      * Get the underlying file channel.
+     *
      * @return The file channel
      */
     public FileChannel channel() {
@@ -111,10 +97,10 @@ public class FileRecords extends AbstractRecords implements Closeable {
      * Read log batches into the given buffer until there are no bytes remaining in the buffer or the end of the file
      * is reached.
      *
-     * @param buffer The buffer to write the batches to
+     * @param buffer   The buffer to write the batches to
      * @param position Position in the buffer to read from
      * @throws IOException If an I/O error occurs, see {@link FileChannel#read(ByteBuffer, long)} for details on the
-     * possible exceptions
+     *                     possible exceptions
      */
     public void readInto(ByteBuffer buffer, int position) throws IOException {
         Utils.readFully(channel, buffer, position + this.start);
@@ -124,13 +110,13 @@ public class FileRecords extends AbstractRecords implements Closeable {
     /**
      * Return a slice of records from this instance, which is a view into this set starting from the given position
      * and with the given size limit.
-     *
+     * <p>
      * If the size is beyond the end of the file, the end will be based on the size of the file at the time of the read.
-     *
+     * <p>
      * If this message set is already sliced, the position will be taken relative to that slicing.
      *
      * @param position The start position to begin the read from
-     * @param size The number of bytes after the start position to include
+     * @param size     The number of bytes after the start position to include
      * @return A sliced wrapper on this message set limited based on the given position and size
      */
     public FileRecords slice(int position, int size) throws IOException {
@@ -142,12 +128,12 @@ public class FileRecords extends AbstractRecords implements Closeable {
     /**
      * Return a slice of records from this instance, the difference with {@link FileRecords#slice(int, int)} is
      * that the position is not necessarily on an offset boundary.
-     *
+     * <p>
      * This method is reserved for cases where offset alignment is not necessary, such as in the replication of raft
      * snapshots.
      *
      * @param position The start position to begin the read from
-     * @param size The number of bytes after the start position to include
+     * @param size     The number of bytes after the start position to include
      * @return A unaligned slice of records on this message set limited based on the given position and size
      */
     public UnalignedFileRecords sliceUnaligned(int position, int size) {
@@ -176,7 +162,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
     /**
      * Append a set of records to the file. This method is not thread-safe and must be
      * protected with a lock.
-     *
+     * 将内存中的消息对象写入操作系统的页缓存
      * @param records The records to append
      * @return the number of bytes written to the underlying file
      */
@@ -215,9 +201,10 @@ public class FileRecords extends AbstractRecords implements Closeable {
 
     /**
      * Delete this message set from the filesystem
+     *
+     * @return {@code true} if the file was deleted by this method; {@code false} if the file could not be deleted
+     * because it did not exist
      * @throws IOException if deletion fails due to an I/O error
-     * @return  {@code true} if the file was deleted by this method; {@code false} if the file could not be deleted
-     *          because it did not exist
      */
     public boolean deleteIfExists() throws IOException {
         Utils.closeQuietly(channel, "FileChannel");
@@ -233,6 +220,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
 
     /**
      * Update the parent directory (to be used with caution since this does not reopen the file channel)
+     *
      * @param parentDir The new parent directory
      */
     public void updateParentDir(File parentDir) {
@@ -241,6 +229,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
 
     /**
      * Rename the file that backs this message set
+     *
      * @throws IOException if rename fails.
      */
     public void renameTo(File f) throws IOException {
@@ -258,6 +247,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
      * update of the files mtime, so truncate is only performed if the targetSize is smaller than the
      * size of the underlying FileChannel.
      * It is expected that no other threads will do writes to the log when this function is called.
+     *
      * @param targetSize The size to truncate to. Must be between 0 and sizeInBytes.
      * @return The number of bytes truncated off
      */
@@ -309,7 +299,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
      * and return its physical position and the size of the message (including log overhead) at the returned offset. If
      * no such offsets are found, return null.
      *
-     * @param targetOffset The offset to search for.
+     * @param targetOffset     The offset to search for.
      * @param startingPosition The starting position in the file to begin searching from.
      */
     public LogOffsetPosition searchForOffsetWithSize(long targetOffset, int startingPosition) {
@@ -327,9 +317,9 @@ public class FileRecords extends AbstractRecords implements Closeable {
      * - Message's position in the log file is greater than or equals to the startingPosition.
      * - Message's offset is greater than or equals to the startingOffset.
      *
-     * @param targetTimestamp The timestamp to search for.
+     * @param targetTimestamp  The timestamp to search for.
      * @param startingPosition The starting position to search.
-     * @param startingOffset The starting offset to search.
+     * @param startingOffset   The starting offset to search.
      * @return The timestamp and offset of the message found. Null if no message is found.
      */
     public TimestampAndOffset searchForTimestamp(long targetTimestamp, int startingPosition, long startingOffset) {
@@ -349,6 +339,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
 
     /**
      * Return the largest timestamp of the messages after a given position in this file message set.
+     *
      * @param startingPosition The starting position.
      * @return The largest timestamp of the messages after the given position.
      */
@@ -378,6 +369,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
      * Get an iterator over the record batches in the file. Note that the batches are
      * backed by the open file channel. When the channel is closed (i.e. when this instance
      * is closed), the batches will generally no longer be readable.
+     *
      * @return An iterator over the batches
      */
     @Override
@@ -398,6 +390,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
      * Get an iterator over the record batches in the file, starting at a specific position. This is similar to
      * {@link #batches()} except that callers specify a particular position to start reading the batches from. This
      * method must be used with caution: the start position passed in must be a known start of a batch.
+     *
      * @param start The position to start record iteration from; must be a known position for start of a batch
      * @return An iterator over batches starting from {@code start}
      */
@@ -449,11 +442,12 @@ public class FileRecords extends AbstractRecords implements Closeable {
      * Open a channel for the given file
      * For windows NTFS and some old LINUX file system, set preallocate to true and initFileSize
      * with one value (for example 512 * 1025 *1024 ) can improve the kafka produce performance.
-     * @param file File path
-     * @param mutable mutable
+     *
+     * @param file              File path
+     * @param mutable           mutable
      * @param fileAlreadyExists File already exists or not
-     * @param initFileSize The size used for pre allocate file, for example 512 * 1025 *1024
-     * @param preallocate Pre-allocate file or not, gotten from configuration.
+     * @param initFileSize      The size used for pre allocate file, for example 512 * 1025 *1024
+     * @param preallocate       Pre-allocate file or not, gotten from configuration.
      */
     private static FileChannel openChannel(File file,
                                            boolean mutable,

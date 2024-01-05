@@ -1,20 +1,3 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package kafka.log
 
 import java.io.File
@@ -25,33 +8,22 @@ import kafka.utils.Logging
 import org.apache.kafka.common.errors.InvalidOffsetException
 
 /**
- * An index that maps offsets to physical file locations for a particular log segment. This index may be sparse:
- * that is it may not hold an entry for all messages in the log.
+ * 将偏移量映射到特定日志段的物理文件位置的索引。 该索引可能是稀疏的：也就是说，它可能无法保存日志中所有消息的条目。
  *
- * The index is stored in a file that is pre-allocated to hold a fixed maximum number of 8-byte entries.
+ * 索引存储在一个预先分配的文件中，用于保存固定的最大数量的 8 字节条目。
  *
- * The index supports lookups against a memory-map of this file. These lookups are done using a simple binary search variant
- * to locate the offset/location pair for the greatest offset less than or equal to the target offset.
+ * 该索引支持针对该文件的内存映射进行查找。 这些查找是使用简单的二分搜索变体来完成的，以找到小于或等于目标偏移的最大偏移的偏移/位置对。
  *
- * Index files can be opened in two ways: either as an empty, mutable index that allows appends or
- * an immutable read-only index file that has previously been populated. The makeReadOnly method will turn a mutable file into an
- * immutable one and truncate off any extra bytes. This is done when the index file is rolled over.
+ * 索引文件可以通过两种方式打开：作为允许追加的空的可变索引或之前已填充的不可变只读索引文件。 makeReadOnly 方法会将可变文件转换为不可变文件并截断任何额外的字节。 这是在索引文件翻转时完成的。
  *
- * No attempt is made to checksum the contents of this file, in the event of a crash it is rebuilt.
+ * 不会尝试对此文件的内容进行校验和，如果发生崩溃，则会重建该文件。
  *
- * The file format is a series of entries. The physical format is a 4 byte "relative" offset and a 4 byte file location for the
- * message with that offset. The offset stored is relative to the base offset of the index file. So, for example,
- * if the base offset was 50, then the offset 55 would be stored as 5. Using relative offsets in this way let's us use
- * only 4 bytes for the offset.
- *
- * The frequency of entries is up to the user of this class.
- *
- * All external APIs translate from relative offsets to full offsets, so users of this class do not interact with the internal
- * storage format.
+ * 文件格式是一系列条目。格式为相对位移(4B),文件物理位置(4B). 存储的偏移量是相对于索引文件的基本偏移量的。 如果基本偏移量为 50，则偏移量 55 将存储为 5。以这种方式使用相对偏移量，让我们仅使用 4 个字节作为偏移量。
  */
 // Avoid shadowing mutable `file` in AbstractIndex
 class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writable: Boolean = true)
-    extends AbstractIndex(_file, baseOffset, maxIndexSize, writable) {
+  extends AbstractIndex(_file, baseOffset, maxIndexSize, writable) {
+
   import OffsetIndex._
 
   override def entrySize = 8
@@ -89,7 +61,7 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
     maybeLock(lock) {
       val idx = mmap.duplicate
       val slot = largestLowerBoundSlotFor(idx, targetOffset, IndexSearchType.KEY)
-      if(slot == -1)
+      if (slot == -1)
         OffsetPosition(baseOffset, 0)
       else
         parseEntry(idx, slot)
@@ -122,6 +94,7 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
 
   /**
    * Get the nth offset mapping from the index
+   *
    * @param n The entry number in the index
    * @return The offset/position pair at that entry
    */
@@ -136,6 +109,7 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
 
   /**
    * Append an entry for the given offset/location pair to the index. This entry must have a larger offset than all subsequent entries.
+   *
    * @throws IndexOffsetOverflowException if the offset causes index offset to overflow
    */
   def append(offset: Long, position: Int): Unit = {
@@ -168,9 +142,9 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
        * 3) if there is no entry for this offset, delete everything larger than the next smallest
        */
       val newEntries =
-        if(slot < 0)
+        if (slot < 0)
           0
-        else if(relativeOffset(idx, slot) == offset - baseOffset)
+        else if (relativeOffset(idx, slot) == offset - baseOffset)
           slot
         else
           slot + 1

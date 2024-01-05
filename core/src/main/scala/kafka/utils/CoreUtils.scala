@@ -1,20 +1,3 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package kafka.utils
 
 import java.io._
@@ -57,12 +40,12 @@ object CoreUtils {
     if (iterable.isEmpty) ifEmpty else iterable.min(cmp)
 
   /**
-    * Do the given action and log any exceptions thrown without rethrowing them.
-    *
-    * @param action The action to execute.
-    * @param logging The logging instance to use for logging the thrown exception.
-    * @param logLevel The log level to use for logging.
-    */
+   * 执行给定的操作并记录抛出的任何异常，而不重新抛出它们。
+   *
+   * @param action   要执行的操作。
+   * @param logging  用于记录抛出的异常的日志实例。
+   * @param logLevel 用于日志记录的日志级别。
+   */
   def swallow(action: => Unit, logging: Logging, logLevel: Level = Level.WARN): Unit = {
     try {
       action
@@ -79,6 +62,7 @@ object CoreUtils {
 
   /**
    * Recursively delete the list of files/directories and any subfiles (if any exist)
+   *
    * @param files sequence of files to be deleted
    */
   def delete(files: Seq[String]): Unit = files.foreach(f => Utils.delete(new File(f)))
@@ -113,8 +97,9 @@ object CoreUtils {
    * this method will not throw an exception if the registration
    * fails (since there is nothing you can do and it isn't fatal),
    * instead it just returns false indicating the registration failed.
+   *
    * @param mbean The object to register as an mbean
-   * @param name The name to register this mbean with
+   * @param name  The name to register this mbean with
    * @return true if the registration succeeded
    */
   def registerMBean(mbean: Object, name: String): Boolean = {
@@ -136,6 +121,7 @@ object CoreUtils {
 
   /**
    * Unregister the mbean with the given name, if there is one registered
+   *
    * @param name The mbean name to unregister
    */
   def unregisterMBean(name: String): Unit = {
@@ -170,7 +156,7 @@ object CoreUtils {
       return map
     val keyVals = str.split("\\s*,\\s*").map(s => {
       val lio = s.lastIndexOf(":")
-      (s.substring(0,lio).trim, s.substring(lio + 1).trim)
+      (s.substring(0, lio).trim, s.substring(lio + 1).trim)
     })
     keyVals.toMap
   }
@@ -197,6 +183,7 @@ object CoreUtils {
 
   /**
    * Create a circular (looping) iterator over a collection.
+   *
    * @param coll An iterable over the underlying collection.
    * @return A circular iterator over the collection.
    */
@@ -207,7 +194,7 @@ object CoreUtils {
    * Replace the given string suffix with the new suffix. If the string doesn't end with the given suffix throw an exception.
    */
   def replaceSuffix(s: String, oldSuffix: String, newSuffix: String): String = {
-    if(!s.endsWith(oldSuffix))
+    if (!s.endsWith(oldSuffix))
       throw new IllegalArgumentException("Expected string to end with '%s' but string is '%s'".format(oldSuffix, s))
     s.substring(0, s.length - oldSuffix.length) + newSuffix
   }
@@ -217,9 +204,9 @@ object CoreUtils {
    */
   def readInt(bytes: Array[Byte], offset: Int): Int = {
     ((bytes(offset) & 0xFF) << 24) |
-    ((bytes(offset + 1) & 0xFF) << 16) |
-    ((bytes(offset + 2) & 0xFF) << 8) |
-    (bytes(offset + 3) & 0xFF)
+      ((bytes(offset + 1) & 0xFF) << 16) |
+      ((bytes(offset + 2) & 0xFF) << 8) |
+      (bytes(offset + 3) & 0xFF)
   }
 
   /**
@@ -243,7 +230,7 @@ object CoreUtils {
    */
   def duplicates[T](s: Iterable[T]): Iterable[T] = {
     s.groupBy(identity)
-      .map { case (k, l) => (k, l.size)}
+      .map { case (k, l) => (k, l.size) }
       .filter { case (_, l) => l > 1 }
       .keys
   }

@@ -1,20 +1,3 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package kafka.log
 
 import java.io.{Closeable, File, RandomAccessFile}
@@ -31,17 +14,19 @@ import org.apache.kafka.common.utils.{ByteBufferUnmapper, OperatingSystem, Utils
 /**
  * The abstract index class which holds entry format agnostic methods.
  *
- * @param _file The index file
- * @param baseOffset the base offset of the segment that this index is corresponding to.
+ * @param _file        The index file
+ * @param baseOffset   the base offset of the segment that this index is corresponding to.
  * @param maxIndexSize The maximum index size in bytes.
  */
 abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: Long, val maxIndexSize: Int = -1,
                              val writable: Boolean) extends Closeable {
+
   import AbstractIndex._
 
   // Length of the index file
   @volatile
   private var _length: Long = _
+
   protected def entrySize: Int
 
   /*
@@ -107,31 +92,34 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
 
   @volatile
   protected var mmap: MappedByteBuffer = {
+    //MappedByteBuffer 是 ByteBuffer 的一个子类，它提供了一种特殊的 ByteBuffer 实现。MappedByteBuffer 表示一个直接映射到文件的字节缓冲区，可以像内存一样访问文件数据
     val newlyCreated = file.createNewFile()
+    //创建一个 可读可写|可读 文件
     val raf = if (writable) new RandomAccessFile(file, "rw") else new RandomAccessFile(file, "r")
     try {
       /* pre-allocate the file if necessary */
-      if(newlyCreated) {
-        if(maxIndexSize < entrySize)
+      if (newlyCreated) {
+        if (maxIndexSize < entrySize)
           throw new IllegalArgumentException("Invalid max index size: " + maxIndexSize)
         raf.setLength(roundDownToExactMultiple(maxIndexSize, entrySize))
       }
 
-      /* memory-map the file */
+      /* 进行内存映射*/
       _length = raf.length()
       val idx = {
-        if (writable)
+        if (writable) {
+          //FileChannel.map 将此通道文件的某个区域直接映射到内存中
           raf.getChannel.map(FileChannel.MapMode.READ_WRITE, 0, _length)
-        else
+        } else
           raf.getChannel.map(FileChannel.MapMode.READ_ONLY, 0, _length)
       }
-      /* set the position in the index for the next entry */
-      if(newlyCreated)
+      /* 将新创建的索引文件的位置设置为0 */
+      if (newlyCreated)
         idx.position(0)
       else
-        // if this is a pre-existing index, assume it is valid and set position to last entry
+      // 对于原来就存在的索引文件,则将position移动到所有索引项的结尾位置
         idx.position(roundDownToExactMultiple(idx.limit(), entrySize))
-      idx
+      idx //return MappedByteBuffer对象
     } finally {
       CoreUtils.swallow(raf.close(), AbstractIndex)
     }
@@ -143,7 +131,7 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
   @volatile
   private[this] var _maxEntries: Int = mmap.limit() / entrySize
 
-  /** The number of entries in this index */
+  /** 当前索引文件中的索引个数 */
   @volatile
   protected var _entries: Int = mmap.position() / entrySize
 
@@ -282,7 +270,7 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
   def truncateTo(offset: Long): Unit
 
   /**
-   * Remove all the entries from the index and resize the index to the max index size.
+   * 清空索引文件
    */
   def reset(): Unit = {
     truncate()
@@ -291,6 +279,7 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
 
   /**
    * Get offset relative to base offset of this index
+   *
    * @throws IndexOffsetOverflowException
    */
   def relativeOffset(offset: Long): Int = {
@@ -302,6 +291,7 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
 
   /**
    * Check if a particular offset is valid to be appended to this index.
+   *
    * @param offset The offset to check
    * @return true if this offset is valid to be appended to this index; false otherwise
    */
@@ -345,7 +335,7 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
    * To parse an entry in the index.
    *
    * @param buffer the buffer of this memory mapped index.
-   * @param n the slot
+   * @param n      the slot
    * @return the index entry stored in the given slot.
    */
   protected def parseEntry(buffer: ByteBuffer, n: Int): IndexEntry
@@ -354,7 +344,7 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
    * Find the slot in which the largest entry less than or equal to the given target key or value is stored.
    * The comparison is made using the `IndexEntry.compareTo()` method.
    *
-   * @param idx The index buffer
+   * @param idx    The index buffer
    * @param target The index key to look for
    * @return The slot found or -1 if the least entry in the index is larger than the target key or the index is empty
    */
@@ -372,20 +362,20 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
    */
   private def indexSlotRangeFor(idx: ByteBuffer, target: Long, searchEntity: IndexSearchType): (Int, Int) = {
     // check if the index is empty
-    if(_entries == 0)
+    if (_entries == 0)
       return (-1, -1)
 
-    def binarySearch(begin: Int, end: Int) : (Int, Int) = {
+    def binarySearch(begin: Int, end: Int): (Int, Int) = {
       // binary search for the entry
       var lo = begin
       var hi = end
-      while(lo < hi) {
+      while (lo < hi) {
         val mid = (lo + hi + 1) >>> 1
         val found = parseEntry(idx, mid)
         val compareResult = compareIndexEntry(found, target, searchEntity)
-        if(compareResult > 0)
+        if (compareResult > 0)
           hi = mid - 1
-        else if(compareResult < 0)
+        else if (compareResult < 0)
           lo = mid
         else
           return (mid, mid)
@@ -395,12 +385,12 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
 
     val firstHotEntry = Math.max(0, _entries - 1 - _warmEntries)
     // check if the target offset is in the warm section of the index
-    if(compareIndexEntry(parseEntry(idx, firstHotEntry), target, searchEntity) < 0) {
+    if (compareIndexEntry(parseEntry(idx, firstHotEntry), target, searchEntity) < 0) {
       return binarySearch(firstHotEntry, _entries - 1)
     }
 
     // check if the target offset is smaller than the least offset
-    if(compareIndexEntry(parseEntry(idx, 0), target, searchEntity) > 0)
+    if (compareIndexEntry(parseEntry(idx, 0), target, searchEntity) > 0)
       return (-1, 0)
 
     binarySearch(0, firstHotEntry)
@@ -414,8 +404,11 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
   }
 
   /**
-   * Round a number to the greatest exact multiple of the given factor less than the given number.
-   * E.g. roundDownToExactMultiple(67, 8) == 64
+   * offsetIndex是得到小于number的8的倍数, timeIndex是小于number的12的倍数
+   *
+   * @param number 上限
+   * @param factor 因子
+   * @return 最接近上限的值
    */
   private def roundDownToExactMultiple(number: Int, factor: Int) = factor * (number / factor)
 
@@ -434,7 +427,9 @@ object AbstractIndex extends Logging {
 }
 
 sealed trait IndexSearchType
+
 object IndexSearchType {
   case object KEY extends IndexSearchType
+
   case object VALUE extends IndexSearchType
 }
