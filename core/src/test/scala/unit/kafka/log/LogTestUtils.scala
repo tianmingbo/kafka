@@ -1,20 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package kafka.log
 
 import java.io.File
@@ -32,8 +15,8 @@ import scala.jdk.CollectionConverters._
 
 object LogTestUtils {
   /**
-    *  Create a segment with the given base offset
-    */
+   * Create a segment with the given base offset
+   */
   def createSegment(offset: Long,
                     logDir: File,
                     indexIntervalBytes: Int = 10,
@@ -99,6 +82,7 @@ object LogTestUtils {
 
   /**
    * Check if the given log contains any segment with records that cause offset overflow.
+   *
    * @param log Log to check
    * @return true if log contains at least one segment with offset overflow; false otherwise
    */
@@ -169,7 +153,7 @@ object LogTestUtils {
     for (logSegment <- log.logSegments;
          batch <- logSegment.log.batches.asScala if !batch.isControlBatch;
          record <- batch.asScala if record.hasValue && record.hasKey)
-      yield TestUtils.readString(record.key).toLong
+    yield TestUtils.readString(record.key).toLong
   }
 
   def recoverAndCheck(logDir: File, config: LogConfig, expectedKeys: Iterable[Long], brokerTopicStats: BrokerTopicStats, time: Time, scheduler: Scheduler): Log = {
@@ -211,10 +195,10 @@ object LogTestUtils {
   }
 
   def readLog(log: Log,
-             startOffset: Long,
-             maxLength: Int,
-             isolation: FetchIsolation = FetchLogEnd,
-             minOneMessage: Boolean = true): FetchDataInfo = {
+              startOffset: Long,
+              maxLength: Int,
+              isolation: FetchIsolation = FetchLogEnd,
+              minOneMessage: Boolean = true): FetchDataInfo = {
     log.read(startOffset, maxLength, isolation, minOneMessage)
   }
 

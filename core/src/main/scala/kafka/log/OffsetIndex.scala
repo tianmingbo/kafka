@@ -28,7 +28,7 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
 
   override def entrySize = 8
 
-  /* the last offset in the index */
+  /* 保存最后一个索引项的offset */
   private[this] var _lastOffset = lastEntry.offset
 
   debug(s"Loaded index file ${file.getAbsolutePath} with maxEntries = $maxEntries, " +
@@ -49,17 +49,17 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
   def lastOffset: Long = _lastOffset
 
   /**
-   * Find the largest offset less than or equal to the given targetOffset
-   * and return a pair holding this offset and its corresponding physical file position.
+   * 找到小于或等于给定targetOffset的最大偏移量，并返回保存该偏移量及其对应的物理文件位置的对。
    *
-   * @param targetOffset The offset to look up.
-   * @return The offset found and the corresponding file position for this offset
-   *         If the target offset is smaller than the least entry in the index (or the index is empty),
-   *         the pair (baseOffset, 0) is returned.
+   * @param targetOffset 要查找的偏移量。
+   * @return 找到的偏移量以及该偏移量对应的文件位置
+   *         如果目标偏移量小于索引中的最小条目（或者索引为空），
+   *         返回 (baseOffset, 0) 对。
    */
   def lookup(targetOffset: Long): OffsetPosition = {
+    //win需要加锁
     maybeLock(lock) {
-      val idx = mmap.duplicate
+      val idx = mmap.duplicate //创建一个副本
       val slot = largestLowerBoundSlotFor(idx, targetOffset, IndexSearchType.KEY)
       if (slot == -1)
         OffsetPosition(baseOffset, 0)
@@ -108,7 +108,7 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
   }
 
   /**
-   * Append an entry for the given offset/location pair to the index. This entry must have a larger offset than all subsequent entries.
+   * 将给定 偏移,位置 添加到索引
    *
    * @throws IndexOffsetOverflowException if the offset causes index offset to overflow
    */
@@ -117,10 +117,11 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
       require(!isFull, "Attempt to append to a full index (size = " + _entries + ").")
       if (_entries == 0 || offset > _lastOffset) {
         trace(s"Adding index entry $offset => $position to ${file.getAbsolutePath}")
-        mmap.putInt(relativeOffset(offset))
-        mmap.putInt(position)
-        _entries += 1
-        _lastOffset = offset
+        mmap.putInt(relativeOffset(offset)) //写入相对偏移
+        mmap.putInt(position) //写入物理位置
+        _entries += 1 //当前索引个数+1
+        _lastOffset = offset //更新最后一个索引项的offset
+        //确保索引文件大小与索引条目数量相匹配
         require(_entries * entrySize == mmap.position(), s"$entries entries but file position in index is ${mmap.position()}.")
       } else {
         throw new InvalidOffsetException(s"Attempt to append an offset ($offset) to position $entries no larger than" +
@@ -153,18 +154,21 @@ class OffsetIndex(_file: File, baseOffset: Long, maxIndexSize: Int = -1, writabl
   }
 
   /**
-   * Truncates index to a known number of entries.
+   * 截断索引为给定条目数
+   *
+   * @param entries 要截断的条目数
    */
   private def truncateToEntries(entries: Int): Unit = {
     inLock(lock) {
       _entries = entries
       mmap.position(_entries * entrySize)
-      _lastOffset = lastEntry.offset
+      _lastOffset = lastEntry.offset //更新最后一个索引项的offset
       debug(s"Truncated index ${file.getAbsolutePath} to $entries entries;" +
         s" position is now ${mmap.position()} and last offset is now ${_lastOffset}")
     }
   }
 
+  //完整性检查
   override def sanityCheck(): Unit = {
     if (_entries != 0 && _lastOffset < baseOffset)
       throw new CorruptIndexException(s"Corrupt index found, index file (${file.getAbsolutePath}) has non-zero size " +

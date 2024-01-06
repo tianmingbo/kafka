@@ -126,7 +126,7 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
   }
 
   /**
-   * The maximum number of entries this index can hold
+   * 当前索引文件中最多能够保存的索引项个数
    */
   @volatile
   private[this] var _maxEntries: Int = mmap.limit() / entrySize
@@ -278,7 +278,7 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
   }
 
   /**
-   * Get offset relative to base offset of this index
+   * 获取基于base offset的相对偏移量
    *
    * @throws IndexOffsetOverflowException
    */
@@ -317,9 +317,8 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
   }
 
   /**
-   * Execute the given function in a lock only if we are running on windows or z/OS. We do this
-   * because Windows or z/OS won't let us resize a file while it is mmapped. As a result we have to force unmap it
-   * and this requires synchronizing reads.
+   * 仅当我们在 Windows 或 z/OS 上运行时，才在锁中执行给定的函数。
+   * 因为 Windows 或 z/OS 不允许我们在映射文件时调整文件大小。 因此，我们必须强制取消映射它，这需要同步读取。
    */
   protected def maybeLock[T](lock: Lock)(fun: => T): T = {
     if (OperatingSystem.IS_WINDOWS || OperatingSystem.IS_ZOS)
