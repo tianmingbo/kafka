@@ -14,9 +14,10 @@ import org.apache.kafka.common.utils.{ByteBufferUnmapper, OperatingSystem, Utils
 /**
  * The abstract index class which holds entry format agnostic methods.
  *
- * @param _file        The index file
- * @param baseOffset   the base offset of the segment that this index is corresponding to.
- * @param maxIndexSize The maximum index size in bytes.
+ * @param _file        索引文件:每个索引对象在磁盘上都对应了一个索引文件
+ * @param baseOffset   起始位移值:索引对象对应日志段对象的起始位移值。
+ * @param maxIndexSize 索引文件最大字节数:它控制索引文件的最大长度,默认10MB
+ * @param writable     索引文件打开方式
  */
 abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: Long, val maxIndexSize: Int = -1,
                              val writable: Boolean) extends Closeable {
@@ -27,6 +28,7 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
   @volatile
   private var _length: Long = _
 
+  //示不同索引项的大小
   protected def entrySize: Int
 
   /*
@@ -99,12 +101,13 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
     try {
       /* pre-allocate the file if necessary */
       if (newlyCreated) {
+        //如果设置的maxIndexSize太小,连一个索引都放不下,则抛出异常
         if (maxIndexSize < entrySize)
           throw new IllegalArgumentException("Invalid max index size: " + maxIndexSize)
         raf.setLength(roundDownToExactMultiple(maxIndexSize, entrySize))
       }
 
-      /* 进行内存映射*/
+      /* 更新索引长度字段_length*/
       _length = raf.length()
       val idx = {
         if (writable) {
@@ -331,22 +334,22 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
   }
 
   /**
-   * To parse an entry in the index.
+   * 解析索引中的条目。
    *
-   * @param buffer the buffer of this memory mapped index.
-   * @param n      the slot
-   * @return the index entry stored in the given slot.
+   * @param buffer 该内存映射索引的缓冲区。
+   * @param n      表示要查找给定的ByteBuffer中保存的第n个索引项
+   * @return 存储在给定槽中的索引条目。
    */
   protected def parseEntry(buffer: ByteBuffer, n: Int): IndexEntry
 
   /**
-   * Find the slot in which the largest entry less than or equal to the given target key or value is stored.
-   * The comparison is made using the `IndexEntry.compareTo()` method.
+   * 查找存储小于或等于给定目标键或值的最大条目的槽。
+   * 使用“IndexEntry.compareTo()”方法进行比较。
    *
-   * @param idx    The index buffer
-   * @param target The index key to look for
-   * @return The slot found or -1 if the least entry in the index is larger than the target key or the index is empty
-   */
+   * @param idx    索引缓冲区
+   * @param target 要查找的索引键
+   * @return 找到的槽，如果索引中的最小条目大于目标键或索引为空，则返回 -1
+   * */
   protected def largestLowerBoundSlotFor(idx: ByteBuffer, target: Long, searchEntity: IndexSearchType): Int =
     indexSlotRangeFor(idx, target, searchEntity)._1
 
@@ -360,10 +363,11 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
    * Lookup lower and upper bounds for the given target.
    */
   private def indexSlotRangeFor(idx: ByteBuffer, target: Long, searchEntity: IndexSearchType): (Int, Int) = {
-    // check if the index is empty
+    // 1.如果当前索引项为空,直接返回<-1,-1>
     if (_entries == 0)
       return (-1, -1)
 
+    // 二分
     def binarySearch(begin: Int, end: Int): (Int, Int) = {
       // binary search for the entry
       var lo = begin
@@ -382,16 +386,17 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
       (lo, if (lo == _entries - 1) -1 else lo + 1)
     }
 
+    //3.确认第一个热索引项
     val firstHotEntry = Math.max(0, _entries - 1 - _warmEntries)
-    // check if the target offset is in the warm section of the index
+    // 4.判断target位移值是在热区还是冷区
     if (compareIndexEntry(parseEntry(idx, firstHotEntry), target, searchEntity) < 0) {
       return binarySearch(firstHotEntry, _entries - 1)
     }
 
-    // check if the target offset is smaller than the least offset
+    // 5.确保target位移值当不能小于当前索引最小位移值
     if (compareIndexEntry(parseEntry(idx, 0), target, searchEntity) > 0)
       return (-1, 0)
-
+    // 6. 如果在冷区,搜索冷区
     binarySearch(0, firstHotEntry)
   }
 
