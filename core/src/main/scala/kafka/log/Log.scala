@@ -227,7 +227,7 @@ case object SnapshotGenerated extends LogStartOffsetIncrementReason {
  *                       - Earliest offset of the log in response to ListOffsetRequest. To avoid OffsetOutOfRange exception after user seeks to earliest offset,
  *                         we make sure that logStartOffset <= log's highWatermark
  *                         Other activities such as log cleaning are not affected by logStartOffset.
- * @param recoveryPoint                       The offset at which to begin the next recovery i.e. the first offset which has not been flushed to disk
+ * @param recoveryPoint                       指定恢复操作的起始offset， recoveryPoint之前的Message已经刷新到磁盘上持久存储， 而其后的消息则不一定， 出现宕机时可能会丢失。 所以只需要恢复recoveryPoint之后的消息即可。
  * @param nextOffsetMetadata                  封装了下一条待插入消息的位移值
  * @param scheduler                           The thread pool scheduler used for background actions
  * @param brokerTopicStats                    Container for Broker Topic Yammer Metrics
@@ -300,6 +300,7 @@ class Log(@volatile private var _dir: File,
    * not eligible for deletion. This means that the active segment is only eligible for deletion if the high watermark
    * equals the log end offset (which may never happen for a partition under consistent load). This is needed to
    * prevent the log start offset (which is exposed in fetch responses) from getting ahead of the high watermark.
+   * 分区日志高水位值
    */
   @volatile private var highWatermarkMetadata: LogOffsetMetadata = LogOffsetMetadata(logStartOffset)
 
@@ -1874,7 +1875,7 @@ class Log(@volatile private var _dir: File,
   def lastFlushTime: Long = lastFlushedTime.get
 
   /**
-   * The active segment that is currently taking appends
+   * 获取当前活跃的LogSegment
    */
   def activeSegment = segments.lastSegment.get
 
@@ -2209,7 +2210,8 @@ object Log extends Logging {
     segments.map(_.size.toLong).sum
 
   /**
-   * Parse the topic and partition out of the directory name of a log
+   * 从日志的目录名中解析出主题和分区
+   * topic1-0,返回 TopicPartition("topic1", 0)
    */
   def parseTopicPartitionName(dir: File): TopicPartition = {
     if (dir == null)
@@ -2224,6 +2226,7 @@ object Log extends Logging {
     val dirName = dir.getName
     if (dirName == null || dirName.isEmpty || !dirName.contains('-'))
       throw exception(dir)
+    //如果目录的名称以 DeleteDirSuffix 结尾，并且它的名称不匹配 DeleteDirPattern 所代表的正则表达式；那么就抛出一个异常
     if (dirName.endsWith(DeleteDirSuffix) && !DeleteDirPattern.matcher(dirName).matches ||
       dirName.endsWith(FutureDirSuffix) && !FutureDirPattern.matcher(dirName).matches)
       throw exception(dir)
@@ -2233,8 +2236,8 @@ object Log extends Logging {
       else dirName
 
     val index = name.lastIndexOf('-')
-    val topic = name.substring(0, index)
-    val partitionString = name.substring(index + 1)
+    val topic = name.substring(0, index) //topic
+    val partitionString = name.substring(index + 1) //分区
     if (topic.isEmpty || partitionString.isEmpty)
       throw exception(dir)
 

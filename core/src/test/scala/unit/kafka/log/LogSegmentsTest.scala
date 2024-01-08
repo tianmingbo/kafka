@@ -77,7 +77,7 @@ class LogSegmentsTest {
     assertTrue(segments.nonEmpty)
     assertEquals(1, segments.numberOfSegments)
     assertFalse(segments.contains(offset2))
-
+    println(segments.values)
     // Clear all segments including seg3
     segments.clear()
     assertTrue(segments.isEmpty)

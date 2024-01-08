@@ -209,13 +209,11 @@ object LogLoader extends Logging {
   }
 
   /**
-   * Removes any temporary files found in log directory, and creates a list of all .swap files which could be swapped
-   * in place of existing segment(s). For log splitting, we know that any .swap file whose base offset is higher than
-   * the smallest offset .clean file could be part of an incomplete split operation. Such .swap files are also deleted
-   * by this method.
+   * 删除日志目录中找到的所有临时文件，并创建所有可替换现有段的 .swap 文件的列表。
+   * 对于日志拆分，我们知道任何基本偏移量高于最小偏移量 .clean 文件的 .swap 文件都可能是不完整拆分操作的一部分。 此类.swap 文件也会通过此方法删除。
    *
-   * @param params The parameters for the log being loaded from disk
-   * @return Set of .swap files that are valid to be swapped in as segment files and index files
+   * @param params 从磁盘加载日志的参数
+   * @return 一组可有效交换为段文件和索引文件的 .swap 文件
    */
   private def removeTempFilesAndCollectSwapFiles(params: LoadLogParams): Set[File] = {
 

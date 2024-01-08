@@ -14,11 +14,12 @@ import scala.jdk.CollectionConverters._
  * required read and write behavior on the map.
  *
  * @param topicPartition the TopicPartition associated with the segments
- *                        (useful for logging purposes)
+ *                       (useful for logging purposes)
  */
 class LogSegments(topicPartition: TopicPartition) {
 
-  /* the segments of the log with key being LogSegment base offset and value being a LogSegment */
+  /* Log是对多个LogSegment对象的顺序组合， 形成一个逻辑的日志。
+  为了实现快速定位LogSegment， Log使用跳表（SkipList)对LogSegment进行管理 */
   private val segments: ConcurrentNavigableMap[Long, LogSegment] = new ConcurrentSkipListMap[Long, LogSegment]
 
   /**
@@ -97,7 +98,6 @@ class LogSegments(topicPartition: TopicPartition) {
    * Retrieves a segment at the specified offset.
    *
    * @param offset the segment to be retrieved
-   *
    * @return the segment if it exists, otherwise None.
    */
   @threadsafe
@@ -175,7 +175,7 @@ class LogSegments(topicPartition: TopicPartition) {
    *         if it exists.
    */
   @threadsafe
-  def higherSegment(offset: Long): Option[LogSegment]  = higherEntry(offset).map(_.getValue)
+  def higherSegment(offset: Long): Option[LogSegment] = higherEntry(offset).map(_.getValue)
 
   /**
    * @return the entry associated with the smallest offset, if it exists.
