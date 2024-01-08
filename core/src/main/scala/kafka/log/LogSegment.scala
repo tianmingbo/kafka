@@ -117,8 +117,7 @@ class LogSegment private[log](val log: FileRecords,
   }
 
   /**
-   * Append the given messages starting with the given offset. Add
-   * an entry to the index if needed.
+   * 从给定的偏移量开始附加给定的消息。 如果需要，就添加一个索引。
    *
    * It is assumed this method is being called from within a lock.
    *
@@ -248,16 +247,13 @@ class LogSegment private[log](val log: FileRecords,
   }
 
   /**
-   * Find the physical file position for the first message with offset >= the requested offset.
+   * 查找偏移量 >= 请求的偏移量的第一条消息的物理文件位置。
    *
-   * The startingFilePosition argument is an optimization that can be used if we already know a valid starting position
-   * in the file higher than the greatest-lower-bound from the index.
+   * startingFilePosition 参数是一种优化，如果我们已经知道文件中高于索引最大下限的有效起始位置，则可以使用该优化。
    *
-   * @param offset               The offset we want to translate
-   * @param startingFilePosition A lower bound on the file position from which to begin the search. This is purely an optimization and
-   *                             when omitted, the search will begin at the position in the offset index.
-   * @return The position in the log storing the message with the least offset >= the requested offset and the size of the
-   *         message or null if no message meets this criteria.
+   * @param offset               偏移量
+   * @param startingFilePosition 开始搜索的文件位置的下限。 这纯粹是一种优化，当省略时，搜索将从偏移索引中的位置开始。
+   * @return 日志中存储消息的位置，其最小偏移量 >= 请求的偏移量和消息的大小，如果没有消息满足此条件，则返回 null。
    */
   @threadsafe
   private[log] def translateOffset(offset: Long, startingFilePosition: Int = 0): LogOffsetPosition = {
@@ -266,8 +262,8 @@ class LogSegment private[log](val log: FileRecords,
   }
 
   /**
-   * Read a message set from this segment beginning with the first offset >= startOffset. The message set will include
-   * no more than maxSize bytes and will end before maxOffset if a maxOffset is specified.
+   * 从此段中读取消息集，从第一个偏移量 >= startOffset 开始。
+   * 消息集将包含不超过 maxSize 字节，并且如果指定了 maxOffset，则消息集将在 maxOffset 之前结束。
    *
    * @param startOffset   要读取的第一条消息的位移；
    * @param maxSize       能读取的最大字节数；
@@ -324,23 +320,26 @@ class LogSegment private[log](val log: FileRecords,
    */
   @nonthreadsafe
   def recover(producerStateManager: ProducerStateManager, leaderEpochCache: Option[LeaderEpochFileCache] = None): Int = {
+    //清空索引文件
     offsetIndex.reset()
     timeIndex.reset()
     txnIndex.reset()
+    //初始化变量
     var validBytes = 0
     var lastIndexEntry = 0
     maxTimestampAndOffsetSoFar = TimestampOffset.Unknown
     try {
+      //遍历日志中的每个批次
       for (batch <- log.batches.asScala) {
-        batch.ensureValid()
-        ensureOffsetInRange(batch.lastOffset)
+        batch.ensureValid() // 确保批次有效性
+        ensureOffsetInRange(batch.lastOffset) // 确保偏移量在有效范围内
 
-        // The max timestamp is exposed at the batch level, so no need to iterate the records
+        // 更新最大时间戳和偏移量
         if (batch.maxTimestamp > maxTimestampSoFar) {
           maxTimestampAndOffsetSoFar = TimestampOffset(batch.maxTimestamp, batch.lastOffset)
         }
 
-        // Build offset index
+        // 构建偏移量索引
         if (validBytes - lastIndexEntry > indexIntervalBytes) {
           offsetIndex.append(batch.lastOffset, validBytes)
           timeIndex.maybeAppend(maxTimestampSoFar, offsetOfMaxTimestampSoFar)
@@ -361,10 +360,12 @@ class LogSegment private[log](val log: FileRecords,
         warn("Found invalid messages in log segment %s at byte offset %d: %s. %s"
           .format(log.file.getAbsolutePath, validBytes, e.getMessage, e.getCause))
     }
+    // 计算截断的字节数
     val truncated = log.sizeInBytes - validBytes
     if (truncated > 0)
       debug(s"Truncated $truncated invalid bytes at the end of segment ${log.file.getAbsoluteFile} during recovery")
 
+    // 截断日志、修剪索引
     log.truncateTo(validBytes)
     offsetIndex.trimToValidSize()
     // A normally closed segment always appends the biggest timestamp ever seen into log segment, we do this as well.

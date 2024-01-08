@@ -344,6 +344,7 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
 
   /**
    * 查找存储小于或等于给定目标键或值的最大条目的槽。
+   * 1 6 10 14 查找8，返回6的索引
    * 使用“IndexEntry.compareTo()”方法进行比较。
    *
    * @param idx    索引缓冲区
@@ -351,7 +352,7 @@ abstract class AbstractIndex(@volatile private var _file: File, val baseOffset: 
    * @return 找到的槽，如果索引中的最小条目大于目标键或索引为空，则返回 -1
    * */
   protected def largestLowerBoundSlotFor(idx: ByteBuffer, target: Long, searchEntity: IndexSearchType): Int =
-    indexSlotRangeFor(idx, target, searchEntity)._1
+    indexSlotRangeFor(idx, target, searchEntity)._1 //._1返回第一个元素的值
 
   /**
    * Find the smallest entry greater than or equal the target key or value. If none can be found, -1 is returned.
