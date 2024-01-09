@@ -2023,7 +2023,7 @@ object Log extends Logging {
   /** a file that is scheduled to be deleted */
   val DeletedFileSuffix = ".deleted"
 
-  /** A temporary file that is being used for log cleaning */
+  /** 用于日志清理的临时文件 */
   val CleanedFileSuffix = ".cleaned"
 
   /** A temporary file used when swapping files into the log */

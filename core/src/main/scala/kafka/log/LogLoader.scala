@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -36,23 +36,23 @@ case class LoadedLogOffsets(logStartOffset: Long,
                             nextOffsetMetadata: LogOffsetMetadata)
 
 /**
- * @param dir The directory from which log segments need to be loaded
- * @param topicPartition The topic partition associated with the log being loaded
- * @param config The configuration settings for the log being loaded
- * @param scheduler The thread pool scheduler used for background actions
- * @param time The time instance used for checking the clock
- * @param logDirFailureChannel The LogDirFailureChannel instance to asynchronously handle log
- *                             directory failure
- * @param hadCleanShutdown Boolean flag to indicate whether the associated log previously had a
- *                         clean shutdown
- * @param segments The LogSegments instance into which segments recovered from disk will be
- *                 populated
- * @param logStartOffsetCheckpoint The checkpoint of the log start offset
- * @param recoveryPointCheckpoint The checkpoint of the offset at which to begin the recovery
+ * @param dir                       The directory from which log segments need to be loaded
+ * @param topicPartition            The topic partition associated with the log being loaded
+ * @param config                    The configuration settings for the log being loaded
+ * @param scheduler                 The thread pool scheduler used for background actions
+ * @param time                      The time instance used for checking the clock
+ * @param logDirFailureChannel      The LogDirFailureChannel instance to asynchronously handle log
+ *                                  directory failure
+ * @param hadCleanShutdown          Boolean flag to indicate whether the associated log previously had a
+ *                                  clean shutdown
+ * @param segments                  The LogSegments instance into which segments recovered from disk will be
+ *                                  populated
+ * @param logStartOffsetCheckpoint  The checkpoint of the log start offset
+ * @param recoveryPointCheckpoint   The checkpoint of the offset at which to begin the recovery
  * @param maxProducerIdExpirationMs The maximum amount of time to wait before a producer id is
  *                                  considered expired
- * @param leaderEpochCache An optional LeaderEpochFileCache instance to be updated during recovery
- * @param producerStateManager The ProducerStateManager instance to be updated during recovery
+ * @param leaderEpochCache          An optional LeaderEpochFileCache instance to be updated during recovery
+ * @param producerStateManager      The ProducerStateManager instance to be updated during recovery
  */
 case class LoadLogParams(dir: File,
                          topicPartition: TopicPartition,
@@ -83,16 +83,13 @@ object LogLoader extends Logging {
    * KafkaStorageException because it is only called before all logs are loaded.
    *
    * @param params The parameters for the log being loaded from disk
-   *
    * @return the offsets of the Log successfully loaded from disk
-   *
    * @throws LogSegmentOffsetOverflowException if we encounter a .swap file with messages that
    *                                           overflow index offset
    */
   def load(params: LoadLogParams): LoadedLogOffsets = {
 
-    // First pass: through the files in the log directory and remove any temporary files
-    // and find any interrupted swap operations
+    // 第一次遍历:检查日志目录中的文件并删除所有临时文件并查找有效的 .swap 文件
     val swapFiles = removeTempFilesAndCollectSwapFiles(params)
 
     // The remaining valid swap files must come from compaction or segment split operation. We can
@@ -209,7 +206,7 @@ object LogLoader extends Logging {
   }
 
   /**
-   * 删除日志目录中找到的所有临时文件，并创建所有可替换现有段的 .swap 文件的列表。
+   * 整个方法的目的是删除不需要的文件，并返回有效的 .swap 文件集合。
    * 对于日志拆分，我们知道任何基本偏移量高于最小偏移量 .clean 文件的 .swap 文件都可能是不完整拆分操作的一部分。 此类.swap 文件也会通过此方法删除。
    *
    * @param params 从磁盘加载日志的参数
@@ -217,15 +214,16 @@ object LogLoader extends Logging {
    */
   private def removeTempFilesAndCollectSwapFiles(params: LoadLogParams): Set[File] = {
 
-    val swapFiles = mutable.Set[File]()
+    val swapFiles = mutable.Set[File]() //{File对象}
     val cleanedFiles = mutable.Set[File]()
     var minCleanedFileOffset = Long.MaxValue
-
+    //遍历分区日志路径下的所有文件
     for (file <- params.dir.listFiles if file.isFile) {
-      if (!file.canRead)
+      if (!file.canRead) //不可读,抛出异常
         throw new IOException(s"Could not read file $file")
       val filename = file.getName
       if (filename.endsWith(DeletedFileSuffix)) {
+        //如果以.delete结尾，则删除该文件
         debug(s"${params.logIdentifier}Deleting stray temporary file ${file.getAbsolutePath}")
         Files.deleteIfExists(file.toPath)
       } else if (filename.endsWith(CleanedFileSuffix)) {
@@ -239,7 +237,9 @@ object LogLoader extends Logging {
     // KAFKA-6264: Delete all .swap files whose base offset is greater than the minimum .cleaned segment offset. Such .swap
     // files could be part of an incomplete split operation that could not complete. See Log#splitOverflowedSegment
     // for more details about the split operation.
+    // 从 swapFiles 集合中区分出那些起始偏移量大于等于 minCleanedFileOffset 的文件，即 invalidSwapFiles 不符合条件的文件，validSwapFiles 符合条件的文件。
     val (invalidSwapFiles, validSwapFiles) = swapFiles.partition(file => offsetFromFile(file) >= minCleanedFileOffset)
+    //大于minCleanedFileOffset的swap文件删除掉
     invalidSwapFiles.foreach { file =>
       debug(s"${params.logIdentifier}Deleting invalid swap file ${file.getAbsoluteFile} minCleanedFileOffset: $minCleanedFileOffset")
       Files.deleteIfExists(file.toPath)
@@ -250,7 +250,7 @@ object LogLoader extends Logging {
       debug(s"${params.logIdentifier}Deleting stray .clean file ${file.getAbsolutePath}")
       Files.deleteIfExists(file.toPath)
     }
-
+    //返回当前有效的 .swap文件集合
     validSwapFiles
   }
 
@@ -260,7 +260,7 @@ object LogLoader extends Logging {
    * such that there is no offset overflow in any of them.
    *
    * @param params The parameters for the log being loaded from disk
-   * @param fn The function to be executed
+   * @param fn     The function to be executed
    * @return The value returned by the function, if successful
    * @throws Exception whenever the executed function throws any exception other than
    *                   LogSegmentOffsetOverflowException, the same exception is raised to the caller
@@ -342,10 +342,8 @@ object LogLoader extends Logging {
    * Just recovers the given segment, without adding it to the provided params.segments.
    *
    * @param segment Segment to recover
-   * @param params The parameters for the log being loaded from disk
-   *
+   * @param params  The parameters for the log being loaded from disk
    * @return The number of bytes truncated from the segment
-   *
    * @throws LogSegmentOffsetOverflowException if the segment contains messages that cause index offset overflow
    */
   private def recoverSegment(segment: LogSegment, params: LoadLogParams): Int = {
@@ -380,9 +378,7 @@ object LogLoader extends Logging {
    * called before all logs are loaded.
    *
    * @param params The parameters for the log being loaded from disk
-   *
    * @return a tuple containing (newRecoveryPoint, nextOffset).
-   *
    * @throws LogSegmentOffsetOverflowException if we encountered a legacy segment with offset overflow
    */
   private[log] def recoverLog(params: LoadLogParams): (Long, Long) = {
@@ -473,7 +469,7 @@ object LogLoader extends Logging {
    * called before all logs are loaded or the immediate caller will catch and handle IOException
    *
    * @param segmentsToDelete The log segments to schedule for deletion
-   * @param params The parameters for the log being loaded from disk
+   * @param params           The parameters for the log being loaded from disk
    */
   private def removeAndDeleteSegmentsAsync(segmentsToDelete: Iterable[LogSegment],
                                            params: LoadLogParams): Unit = {

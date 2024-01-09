@@ -1,19 +1,3 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package kafka.log
 
 import java.nio.ByteBuffer
@@ -38,6 +22,7 @@ import scala.collection.mutable.ArrayBuffer
  * The source of an append to the log. This is used when determining required validations.
  */
 private[kafka] sealed trait AppendOrigin
+
 private[kafka] object AppendOrigin {
 
   /**
@@ -70,7 +55,7 @@ private[log] object LogValidator extends Logging {
    * Update the offsets for this message set and do further validation on messages including:
    * 1. Messages for compacted topics must have keys
    * 2. When magic value >= 1, inner messages of a compressed message set must have monotonically increasing offsets
-   *    starting from 0.
+   * starting from 0.
    * 3. When magic value >= 1, validate and maybe overwrite timestamps of messages.
    * 4. Declared count of records in DefaultRecordBatch must match number of valid records contained therein.
    *
@@ -103,7 +88,7 @@ private[log] object LogValidator extends Logging {
         convertAndAssignOffsetsNonCompressed(records, topicPartition, offsetCounter, compactedTopic, time, now, timestampType,
           timestampDiffMaxMs, magic, partitionLeaderEpoch, origin, brokerTopicStats)
       else
-        // Do in-place validation, offset assignment and maybe set timestamp
+      // Do in-place validation, offset assignment and maybe set timestamp
         assignOffsetsNonCompressed(records, topicPartition, offsetCounter, now, compactedTopic, timestampType, timestampDiffMaxMs,
           partitionLeaderEpoch, origin, magic, brokerTopicStats)
     } else {
@@ -271,16 +256,16 @@ private[log] object LogValidator extends Logging {
   }
 
   def assignOffsetsNonCompressed(records: MemoryRecords,
-                                         topicPartition: TopicPartition,
-                                         offsetCounter: LongRef,
-                                         now: Long,
-                                         compactedTopic: Boolean,
-                                         timestampType: TimestampType,
-                                         timestampDiffMaxMs: Long,
-                                         partitionLeaderEpoch: Int,
-                                         origin: AppendOrigin,
-                                         magic: Byte,
-                                         brokerTopicStats: BrokerTopicStats): ValidationAndOffsetAssignResult = {
+                                 topicPartition: TopicPartition,
+                                 offsetCounter: LongRef,
+                                 now: Long,
+                                 compactedTopic: Boolean,
+                                 timestampType: TimestampType,
+                                 timestampDiffMaxMs: Long,
+                                 partitionLeaderEpoch: Int,
+                                 origin: AppendOrigin,
+                                 magic: Byte,
+                                 brokerTopicStats: BrokerTopicStats): ValidationAndOffsetAssignResult = {
     var maxTimestamp = RecordBatch.NO_TIMESTAMP
     var offsetOfMaxTimestamp = -1L
     val initialOffset = offsetCounter.value
@@ -445,7 +430,7 @@ private[log] object LogValidator extends Logging {
               uncompressedSizeInBytes += record.sizeInBytes()
               validatedRecords += record
           }
-         batchIndex += 1
+          batchIndex += 1
         }
         processRecordErrors(recordErrors)
       } finally {
