@@ -191,7 +191,7 @@ object CoreUtils {
     for (_ <- Iterator.continually(1); t <- coll) yield t
 
   /**
-   * Replace the given string suffix with the new suffix. If the string doesn't end with the given suffix throw an exception.
+   * 将给定的字符串后缀替换为新的后缀。 如果字符串不以给定后缀结尾，则抛出异常。
    */
   def replaceSuffix(s: String, oldSuffix: String, newSuffix: String): String = {
     if (!s.endsWith(oldSuffix))

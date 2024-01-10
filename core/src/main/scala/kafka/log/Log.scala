@@ -300,7 +300,7 @@ class Log(@volatile private var _dir: File,
    * not eligible for deletion. This means that the active segment is only eligible for deletion if the high watermark
    * equals the log end offset (which may never happen for a partition under consistent load). This is needed to
    * prevent the log start offset (which is exposed in fetch responses) from getting ahead of the high watermark.
-   * 分区日志高水位值
+   * 分区日志高水位值,高水位值的初始值是 Log Start Offset 值。
    */
   @volatile private var highWatermarkMetadata: LogOffsetMetadata = LogOffsetMetadata(logStartOffset)
 
@@ -2107,11 +2107,11 @@ object Log extends Logging {
   }
 
   /**
-   * Construct a log file name in the given dir with the given base offset and the given suffix
+   * 使用给定的基本偏移量和给定的后缀在给定的目录中构造一个日志文件名
    *
-   * @param dir    The directory in which the log will reside
-   * @param offset The base offset of the log file
-   * @param suffix The suffix to be appended to the file name (e.g. "", ".deleted", ".cleaned", ".swap", etc.)
+   * @param dir    日志所在的目录
+   * @param offset 日志文件的基本偏移量
+   * @param suffix 要附加到文件名的后缀（例如“”、“.deleted”、“.cleaned”、“.swap”等）
    */
   def logFile(dir: File, offset: Long, suffix: String = ""): File =
     new File(dir, filenamePrefixFromOffset(offset) + LogFileSuffix + suffix)
@@ -2161,11 +2161,11 @@ object Log extends Logging {
     new File(dir, filenamePrefixFromOffset(offset) + IndexFileSuffix + suffix)
 
   /**
-   * Construct a time index file name in the given dir using the given base offset and the given suffix
+   * 使用给定的基本偏移量和给定的后缀在给定的目录中构造一个日志文件名
    *
-   * @param dir    The directory in which the log will reside
-   * @param offset The base offset of the log file
-   * @param suffix The suffix to be appended to the file name ("", ".deleted", ".cleaned", ".swap", etc.)
+   * @param dir 日志所在的目录
+   * @param offset 日志文件的基本偏移量
+   * @param suffix 要附加到文件名的后缀（例如“”、“.deleted”、“.cleaned”、“.swap”等）
    */
   def timeIndexFile(dir: File, offset: Long, suffix: String = ""): File =
     new File(dir, filenamePrefixFromOffset(offset) + TimeIndexFileSuffix + suffix)
@@ -2255,6 +2255,7 @@ object Log extends Logging {
     filename.endsWith(IndexFileSuffix) || filename.endsWith(TimeIndexFileSuffix) || filename.endsWith(TxnIndexFileSuffix)
   }
 
+  //该方法只能在log包内部被访问
   private[log] def isLogFile(file: File): Boolean =
     file.getPath.endsWith(LogFileSuffix)
 

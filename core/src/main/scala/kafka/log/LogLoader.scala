@@ -1,20 +1,3 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package kafka.log
 
 import java.io.{File, IOException}
@@ -99,6 +82,7 @@ object LogLoader extends Logging {
     // We store segments that require renaming in this code block, and do the actual renaming later.
     var minSwapFileOffset = Long.MaxValue
     var maxSwapFileOffset = Long.MinValue
+    //筛选.log.swap文件
     swapFiles.filter(f => Log.isLogFile(new File(CoreUtils.replaceSuffix(f.getPath, SwapFileSuffix, "")))).foreach { f =>
       val baseOffset = offsetFromFile(f)
       val segment = LogSegment.open(f.getParentFile,
@@ -111,9 +95,7 @@ object LogLoader extends Logging {
       maxSwapFileOffset = Math.max(segment.readNextOffset, maxSwapFileOffset)
     }
 
-    // Second pass: delete segments that are between minSwapFileOffset and maxSwapFileOffset. As
-    // discussed above, these segments were compacted or split but haven't been renamed to .delete
-    // before shutting down the broker.
+    // 第二轮遍历：删除介于minSwapFileOffset和maxSwapFileOffset之间的段。如上所述，这些段被压实或分割，但在关闭broker之前尚未重命名为.delete。
     for (file <- params.dir.listFiles if file.isFile) {
       try {
         if (!file.getName.endsWith(SwapFileSuffix)) {
@@ -130,7 +112,7 @@ object LogLoader extends Logging {
       }
     }
 
-    // Third pass: rename all swap files.
+    // 第三次遍历: 重命名所有.swap文件。
     for (file <- params.dir.listFiles if file.isFile) {
       if (file.getName.endsWith(SwapFileSuffix)) {
         info(s"${params.logIdentifier}Recovering file ${file.getName} by renaming from ${Log.SwapFileSuffix} files.")
@@ -139,15 +121,13 @@ object LogLoader extends Logging {
     }
 
 
-    // Fourth pass: load all the log and index files.
-    // We might encounter legacy log segments with offset overflow (KAFKA-6264). We need to split such segments. When
-    // this happens, restart loading segment files from scratch.
+    // 第四次遍历: 加载所有日志和索引文件。当遇到偏移量溢出时，需要重新加载段文件。
     retryOnOffsetOverflow(params, {
       // In case we encounter a segment with offset overflow, the retry logic will split it after which we need to retry
       // loading of segments. In that case, we also need to close all segments that could have been left open in previous
       // call to loadSegmentFiles().
       params.segments.close()
-      params.segments.clear()
+      params.segments.c lear()
       loadSegmentFiles(params)
     })
 
@@ -157,7 +137,7 @@ object LogLoader extends Logging {
           recoverLog(params)
         })
 
-        // reset the index size of the currently active log segment to allow more entries
+        // 重置当前活动日志段的索引大小，以允许更多条目
         params.segments.lastSegment.get.resizeIndexes(params.config.maxIndexSize)
         (newRecoveryPoint, nextOffset)
       } else {
@@ -227,9 +207,11 @@ object LogLoader extends Logging {
         debug(s"${params.logIdentifier}Deleting stray temporary file ${file.getAbsolutePath}")
         Files.deleteIfExists(file.toPath)
       } else if (filename.endsWith(CleanedFileSuffix)) {
+        // 如果文件以 .clean 结尾，则记录最小的清理文件偏移量，并将文件添加到 cleanedFiles 集合中
         minCleanedFileOffset = Math.min(offsetFromFile(file), minCleanedFileOffset)
         cleanedFiles += file
       } else if (filename.endsWith(SwapFileSuffix)) {
+        //如果文件以 .swap 结尾，则将文件添加到 swapFiles 集合中
         swapFiles += file
       }
     }
@@ -239,13 +221,13 @@ object LogLoader extends Logging {
     // for more details about the split operation.
     // 从 swapFiles 集合中区分出那些起始偏移量大于等于 minCleanedFileOffset 的文件，即 invalidSwapFiles 不符合条件的文件，validSwapFiles 符合条件的文件。
     val (invalidSwapFiles, validSwapFiles) = swapFiles.partition(file => offsetFromFile(file) >= minCleanedFileOffset)
-    //大于minCleanedFileOffset的swap文件删除掉
+    // 大于minCleanedFileOffset的swap文件删除掉
     invalidSwapFiles.foreach { file =>
       debug(s"${params.logIdentifier}Deleting invalid swap file ${file.getAbsoluteFile} minCleanedFileOffset: $minCleanedFileOffset")
       Files.deleteIfExists(file.toPath)
     }
 
-    // Now that we have deleted all .swap files that constitute an incomplete split operation, let's delete all .clean files
+    // 删除所有的 .clean 文件
     cleanedFiles.foreach { file =>
       debug(s"${params.logIdentifier}Deleting stray .clean file ${file.getAbsolutePath}")
       Files.deleteIfExists(file.toPath)
@@ -288,30 +270,27 @@ object LogLoader extends Logging {
   }
 
   /**
-   * Loads segments from disk into the provided params.segments.
+   * 从磁盘加载日志段到 params.segments 中。
    *
-   * This method does not need to convert IOException to KafkaStorageException because it is only called before all logs are loaded.
-   * It is possible that we encounter a segment with index offset overflow in which case the LogSegmentOffsetOverflowException
-   * will be thrown. Note that any segments that were opened before we encountered the exception will remain open and the
-   * caller is responsible for closing them appropriately, if needed.
+   * 这个方法不需要将 IOException 转换为 KafkaStorageException，因为它只在加载所有日志之前调用。
+   * 可能会遇到索引偏移量溢出的段，这时会抛出 LogSegmentOffsetOverflowException。请注意，我们在遇到异常之前打开的任何段都将保持打开状态，调用者需要负责适当关闭它们。
    *
-   * @param params The parameters for the log being loaded from disk
-   * @throws LogSegmentOffsetOverflowException if the log directory contains a segment with messages that overflow the index offset
+   * @param params 从磁盘加载的日志的参数
+   * @throws LogSegmentOffsetOverflowException 如果日志目录包含具有溢出索引偏移量的消息的段
    */
   private def loadSegmentFiles(params: LoadLogParams): Unit = {
-    // load segments in ascending order because transactional data from one segment may depend on the
-    // segments that come before it
+    // 按照升序加载段，因为一个段中的事务数据可能依赖于它之前的段
     for (file <- params.dir.listFiles.sortBy(_.getName) if file.isFile) {
       if (isIndexFile(file)) {
-        // if it is an index file, make sure it has a corresponding .log file
+        // 如果是索引文件，确保它有相应的 .log 文件
         val offset = offsetFromFile(file)
         val logFile = Log.logFile(params.dir, offset)
         if (!logFile.exists) {
-          warn(s"${params.logIdentifier}Found an orphaned index file ${file.getAbsolutePath}, with no corresponding log file.")
+          warn(s"${params.logIdentifier}找到一个孤立的索引文件 ${file.getAbsolutePath}，没有相应的日志文件。")
           Files.deleteIfExists(file.toPath)
         }
       } else if (isLogFile(file)) {
-        // if it's a log file, load the corresponding log segment
+        // 如果是日志文件，加载相应的日志段
         val baseOffset = offsetFromFile(file)
         val timeIndexFileNewlyCreated = !Log.timeIndexFile(params.dir, baseOffset).exists()
         val segment = LogSegment.open(
@@ -324,13 +303,12 @@ object LogLoader extends Logging {
         try segment.sanityCheck(timeIndexFileNewlyCreated)
         catch {
           case _: NoSuchFileException =>
-            error(s"${params.logIdentifier}Could not find offset index file corresponding to log file" +
-              s" ${segment.log.file.getAbsolutePath}, recovering segment and rebuilding index files...")
+            error(s"${params.logIdentifier}无法找到与日志文件 ${segment.log.file.getAbsolutePath} 对应的偏移量索引文件，" +
+              "正在恢复段并重建索引文件...")
             recoverSegment(segment, params)
           case e: CorruptIndexException =>
-            warn(s"${params.logIdentifier}Found a corrupted index file corresponding to log file" +
-              s" ${segment.log.file.getAbsolutePath} due to ${e.getMessage}}, recovering segment and" +
-              " rebuilding index files...")
+            warn(s"${params.logIdentifier}找到了与日志文件 ${segment.log.file.getAbsolutePath} 对应的损坏的索引文件，" +
+              s"由于 ${e.getMessage}，正在恢复段并重建索引文件...")
             recoverSegment(segment, params)
         }
         params.segments.add(segment)

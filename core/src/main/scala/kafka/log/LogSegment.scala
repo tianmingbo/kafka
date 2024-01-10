@@ -645,8 +645,14 @@ class LogSegment private[log](val log: FileRecords,
 
 object LogSegment {
   //伴生对象中保存的是静态变量或静态方法
-  def open(dir: File, baseOffset: Long, config: LogConfig, time: Time, fileAlreadyExists: Boolean = false,
-           initFileSize: Int = 0, preallocate: Boolean = false, fileSuffix: String = ""): LogSegment = {
+  def open(dir: File,
+           baseOffset: Long,
+           config: LogConfig,
+           time: Time,
+           fileAlreadyExists: Boolean = false,
+           initFileSize: Int = 0,
+           preallocate: Boolean = false,
+           fileSuffix: String = ""): LogSegment = {
     val maxIndexSize = config.maxIndexSize
     new LogSegment(
       FileRecords.open(Log.logFile(dir, baseOffset, fileSuffix), fileAlreadyExists, initFileSize, preallocate),
