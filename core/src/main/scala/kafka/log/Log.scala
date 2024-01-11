@@ -1,3 +1,8 @@
+/*
+Log Start Offset 值是整个 Log 对象对外可见消息的最小位移值。
+Log End Offset(LEO|nextOffsetMetadata) 永远指向下一条待插入消息
+High Watermark 高水位
+* */
 package kafka.log
 
 import java.io.{File, IOException}
@@ -1444,12 +1449,10 @@ class Log(@volatile private var _dir: File,
   }
 
   /**
-   * Delete any log segments matching the given predicate function,
-   * starting with the oldest segment and moving forward until a segment doesn't match.
+   * 删除与给定函数匹配的所有日志段，从最旧的段开始并向前移动，直到段不匹配为止。
    *
-   * @param predicate A function that takes in a candidate log segment and the next higher segment
-   *                  (if there is one) and returns true iff it is deletable
-   * @return The number of segments deleted
+   * @param predicate 一个函数，它接受候选日志段和下一个更高的段（如果有的话），如果可删除则返回 true
+   * @return 删除的日志段数
    */
   private def deleteOldSegments(predicate: (LogSegment, Option[LogSegment]) => Boolean,
                                 reason: SegmentDeletionReason): Int = {
@@ -1466,13 +1469,14 @@ class Log(@volatile private var _dir: File,
     maybeHandleIOException(s"Error while deleting segments for $topicPartition in dir ${dir.getParent}") {
       val numToDelete = deletable.size
       if (numToDelete > 0) {
-        // we must always have at least one segment, so if we are going to delete all the segments, create a new one first
+        // 不允许删除所有日志段,如果一定要做,则需要先创建一个新的,然后再把前面N个删除
         if (numberOfSegments == numToDelete)
           roll()
         lock synchronized {
           checkIfMemoryMappedBufferClosed()
-          // remove the segments for lookups
+          // 删除给定的日志段对象及底层的物理文件
           removeAndDeleteSegments(deletable, asyncDelete = true, reason)
+          //尝试更新日志的log start offset,
           maybeIncrementLogStartOffset(segments.firstSegment.get.baseOffset, SegmentDeletion)
         }
       }
@@ -1481,19 +1485,17 @@ class Log(@volatile private var _dir: File,
   }
 
   /**
-   * Find segments starting from the oldest until the user-supplied predicate is false or the segment
-   * containing the current high watermark is reached. We do not delete segments with offsets at or beyond
-   * the high watermark to ensure that the log start offset can never exceed it. If the high watermark
-   * has not yet been initialized, no segments are eligible for deletion.
+   * 从最旧的段开始查找日志段，直到用户提供的函数为假或达到包含当前高水位线的日志段。
+   * 我们不会删除偏移量等于或超出高水位线的段，以确保日志起始偏移量永远不会超过它。 如果高水印尚未初始化，则没有段符合删除条件。
    *
-   * A final segment that is empty will never be returned (since we would just end up re-creating it).
+   * 空的最后一个段永远不会被返回（因为我们最终只会重新创建它）。
    *
-   * @param predicate A function that takes in a candidate log segment and the next higher segment
-   *                  (if there is one) and returns true iff it is deletable
-   * @return the segments ready to be deleted
+   * @param predicate 一个函数，它接受候选日志段和下一个更高的段（如果有的话），如果可删除则返回 true
+   * @return 准备删除的段
    */
   private def deletableSegments(predicate: (LogSegment, Option[LogSegment]) => Boolean): Iterable[LogSegment] = {
     if (segments.isEmpty) {
+      //如果日志段为空
       Seq.empty
     } else {
       val deletable = ArrayBuffer.empty[LogSegment]
@@ -1501,13 +1503,16 @@ class Log(@volatile private var _dir: File,
       var segmentOpt = nextOption(segmentsIterator)
       while (segmentOpt.isDefined) {
         val segment = segmentOpt.get
-        val nextSegmentOpt = nextOption(segmentsIterator)
-        val (upperBoundOffset: Long, isLastSegmentAndEmpty: Boolean) =
+        val nextSegmentOpt = nextOption(segmentsIterator) //nextSegmentOpt可能为空
+        val (upperBoundOffset: Long, isLastSegmentAndEmpty: Boolean) = {
+          //如果不为空,则upperBoundOffset=nextSegment.baseOffset,isLastSegmentAndEmpty=false.
+          //为空则走getOrElse逻辑
           nextSegmentOpt.map {
             nextSegment => (nextSegment.baseOffset, false)
           }.getOrElse {
             (logEndOffset, segment.size == 0)
           }
+        }
 
         if (highWatermark >= upperBoundOffset && predicate(segment, nextSegmentOpt) && !isLastSegmentAndEmpty) {
           deletable += segment
@@ -1521,10 +1526,9 @@ class Log(@volatile private var _dir: File,
   }
 
   /**
-   * If topic deletion is enabled, delete any log segments that have either expired due to time based retention
-   * or because the log size is > retentionSize.
+   * 如果启用了主题删除，则删除由于基于时间的保留或由于日志大小 > 保留大小而过期的所有日志段。
    *
-   * Whether or not deletion is enabled, delete any log segments that are before the log start offset
+   * 无论是否启用删除，删除日志起始偏移量之前的所有日志段
    */
   def deleteOldSegments(): Int = {
     if (config.delete) {
@@ -1986,9 +1990,9 @@ class Log(@volatile private var _dir: File,
   }
 
   /**
-   * Add the given segment to the segments in this log. If this segment replaces an existing segment, delete it.
+   * 将给定段添加到此日志中的段中。 如果此段替换了现有段，请将其删除。
    *
-   * @param segment The segment to add
+   * @param segment 要添加的段
    */
   @threadsafe
   private[log] def addSegment(segment: LogSegment): LogSegment = this.segments.add(segment)
