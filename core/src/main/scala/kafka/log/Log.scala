@@ -373,30 +373,30 @@ class Log(@volatile private var _dir: File,
       throw new KafkaStorageException(s"The memory mapped buffer for log of $topicPartition is already closed")
   }
 
+  //获取高水位值
   def highWatermark: Long = highWatermarkMetadata.messageOffset
 
   /**
-   * Update the high watermark to a new offset. The new high watermark will be lower
-   * bounded by the log start offset and upper bounded by the log end offset.
+   * 将高水印更新为新的偏移量。 新的高水位线的下限将由日志开始偏移量决定，上限将由日志结束偏移量决定。
    *
-   * This is intended to be called when initializing the high watermark or when updating
-   * it on a follower after receiving a Fetch response from the leader.
+   * 这是在初始化高水印时或在收到领导者的 Fetch 响应后在追随者上更新它时调用的。
    *
-   * @param hw the suggested new value for the high watermark
-   * @return the updated high watermark offset
+   * @param hw 高水位线的建议新值
+   * @return 更新后的高水位线偏移量
    */
   def updateHighWatermark(hw: Long): Long = {
     updateHighWatermark(LogOffsetMetadata(hw))
   }
 
   /**
-   * Update high watermark with offset metadata. The new high watermark will be lower
-   * bounded by the log start offset and upper bounded by the log end offset.
+   * 使用LogOffsetMetadata更新高水位线。 新的高水位线的下限将由日志开始偏移量决定，上限将由日志结束偏移量决定。
+   * 主要用在 Follower 副本从 Leader 副本获取到消息后更新高水位值。一旦拿到新的消息，就必须要更新高水位值
    *
-   * @param highWatermarkMetadata the suggested high watermark with offset metadata
-   * @return the updated high watermark offset
+   * @param highWatermarkMetadata 建议的带有偏移量元数据的高水位线
+   * @return 更新后的高水位线偏移量
    */
   def updateHighWatermark(highWatermarkMetadata: LogOffsetMetadata): Long = {
+    //新高水位一定介于logStartOffset和LEO之间
     val endOffsetMetadata = logEndOffsetMetadata
     val newHighWatermarkMetadata = if (highWatermarkMetadata.messageOffset < logStartOffset) {
       LogOffsetMetadata(logStartOffset)
@@ -407,32 +407,32 @@ class Log(@volatile private var _dir: File,
     }
 
     updateHighWatermarkMetadata(newHighWatermarkMetadata)
-    newHighWatermarkMetadata.messageOffset
+    newHighWatermarkMetadata.messageOffset //返回新高水位值
   }
 
   /**
-   * Update the high watermark to a new value if and only if it is larger than the old value. It is
-   * an error to update to a value which is larger than the log end offset.
+   * 当且仅当高水印大于旧值时，将高水印更新为新值。更新到大于LEO的值是错误的。
    *
-   * This method is intended to be used by the leader to update the high watermark after follower
-   * fetch offsets have been updated.
+   * Producer 端向 Leader 副本写入消息时，分区的高水位值就可能不需要更新——因为它可能需要等待其他 Follower 副本同步的进度。
    *
-   * @return the old high watermark, if updated by the new value
+   * @return 旧的高水位线，如果被新值更新
    */
   def maybeIncrementHighWatermark(newHighWatermark: LogOffsetMetadata): Option[LogOffsetMetadata] = {
-    if (newHighWatermark.messageOffset > logEndOffset)
+    if (newHighWatermark.messageOffset > logEndOffset) {
+      //大于LEO,直接报错
       throw new IllegalArgumentException(s"High watermark $newHighWatermark update exceeds current " +
         s"log end offset $logEndOffsetMetadata")
-
+    }
+    //lock.synchronized执行同步代码块
     lock.synchronized {
-      val oldHighWatermark = fetchHighWatermarkMetadata
+      val oldHighWatermark = fetchHighWatermarkMetadata //获取旧的高水位值
 
-      // Ensure that the high watermark increases monotonically. We also update the high watermark when the new
-      // offset metadata is on a newer segment, which occurs whenever the log is rolled to a new segment.
+      //新高水位值要比老高水位值大以维持单调增加特性， 否则就不做更新！
+      //另外，如果新高水位值在新日志段上， 也可执行更新高水位操作
       if (oldHighWatermark.messageOffset < newHighWatermark.messageOffset ||
         (oldHighWatermark.messageOffset == newHighWatermark.messageOffset && oldHighWatermark.onOlderSegment(newHighWatermark))) {
         updateHighWatermarkMetadata(newHighWatermark)
-        Some(oldHighWatermark)
+        Some(oldHighWatermark) //返回旧的高水位值
       } else {
         None
       }
@@ -440,16 +440,18 @@ class Log(@volatile private var _dir: File,
   }
 
   /**
-   * Get the offset and metadata for the current high watermark. If offset metadata is not
-   * known, this will do a lookup in the index and cache the result.
+   * 获取当前高水位线的偏移量和元数据。 如果偏移元数据未知，将在索引中进行查找并缓存结果。
    */
   private def fetchHighWatermarkMetadata: LogOffsetMetadata = {
-    checkIfMemoryMappedBufferClosed()
+    checkIfMemoryMappedBufferClosed() //读取时确保日志不能被关闭
 
     val offsetMetadata = highWatermarkMetadata
     if (offsetMetadata.messageOffsetOnly) {
+      //如果没有获取到完整的元数据
       lock.synchronized {
+        // 通过读日志文件的方式把完整的高水位元数据信息拉出来
         val fullOffset = convertToOffsetMetadataOrThrow(highWatermark)
+        // 然后再更新一下高水位对象
         updateHighWatermarkMetadata(fullOffset)
         fullOffset
       }
@@ -458,16 +460,17 @@ class Log(@volatile private var _dir: File,
     }
   }
 
+  // setter method ：设置高水位值
   private def updateHighWatermarkMetadata(newHighWatermark: LogOffsetMetadata): Unit = {
-    if (newHighWatermark.messageOffset < 0)
+    if (newHighWatermark.messageOffset < 0) // 高水位值不能是负数
       throw new IllegalArgumentException("High watermark offset should be non-negative")
 
-    lock synchronized {
+    lock synchronized { //保护Log对象修改的Monitor锁
       if (newHighWatermark.messageOffset < highWatermarkMetadata.messageOffset) {
         warn(s"Non-monotonic update of high watermark from $highWatermarkMetadata to $newHighWatermark")
       }
 
-      highWatermarkMetadata = newHighWatermark
+      highWatermarkMetadata = newHighWatermark //赋值新的高水位值
       producerStateManager.onHighWatermarkUpdated(newHighWatermark.messageOffset)
       maybeIncrementFirstUnstableOffset()
     }
@@ -2163,7 +2166,7 @@ object Log extends Logging {
   /**
    * 使用给定的基本偏移量和给定的后缀在给定的目录中构造一个日志文件名
    *
-   * @param dir 日志所在的目录
+   * @param dir    日志所在的目录
    * @param offset 日志文件的基本偏移量
    * @param suffix 要附加到文件名的后缀（例如“”、“.deleted”、“.cleaned”、“.swap”等）
    */
