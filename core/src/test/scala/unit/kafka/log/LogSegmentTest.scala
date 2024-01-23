@@ -1,19 +1,3 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package kafka.log
 
 import java.io.File
@@ -66,7 +50,7 @@ class LogSegmentTest {
   }
 
   /**
-   * A read on an empty log segment should return null
+   * 对空日志段的读取应返回 null
    */
   @Test
   def testReadOnEmptySegment(): Unit = {
@@ -297,12 +281,12 @@ class LogSegmentTest {
   @Test
   def testRecoveryFixesCorruptIndex(): Unit = {
     val seg = createSegment(0)
-    for(i <- 0 until 100)
+    for (i <- 0 until 100)
       seg.append(i, RecordBatch.NO_TIMESTAMP, -1L, records(i, i.toString))
     val indexFile = seg.lazyOffsetIndex.file
     TestUtils.writeNonsenseToFile(indexFile, 5, indexFile.length.toInt)
     seg.recover(new ProducerStateManager(topicPartition, logDir))
-    for(i <- 0 until 100) {
+    for (i <- 0 until 100) {
       val records = seg.read(i, 1, minOneMessage = true).records.records
       assertEquals(i, records.iterator.next().offset)
     }
@@ -408,8 +392,8 @@ class LogSegmentTest {
 
     seg.recover(new ProducerStateManager(topicPartition, logDir), Some(cache))
     assertEquals(ArrayBuffer(EpochEntry(epoch = 0, startOffset = 104L),
-                             EpochEntry(epoch = 1, startOffset = 106),
-                             EpochEntry(epoch = 2, startOffset = 110)),
+      EpochEntry(epoch = 1, startOffset = 106),
+      EpochEntry(epoch = 2, startOffset = 110)),
       cache.epochEntries)
   }
 
@@ -431,12 +415,12 @@ class LogSegmentTest {
   @Test
   def testRecoveryFixesCorruptTimeIndex(): Unit = {
     val seg = createSegment(0)
-    for(i <- 0 until 100)
+    for (i <- 0 until 100)
       seg.append(i, i * 10, i, records(i, i.toString))
     val timeIndexFile = seg.lazyTimeIndex.file
     TestUtils.writeNonsenseToFile(timeIndexFile, 5, timeIndexFile.length.toInt)
     seg.recover(new ProducerStateManager(topicPartition, logDir))
-    for(i <- 0 until 100) {
+    for (i <- 0 until 100) {
       assertEquals(i, seg.findOffsetByTimestamp(i * 10).get.offset)
       if (i < 99)
         assertEquals(i + 1, seg.findOffsetByTimestamp(i * 10 + 1).get.offset)
@@ -482,7 +466,7 @@ class LogSegmentTest {
   /* create a segment with   pre allocate, put message to it and verify */
   @Test
   def testCreateWithInitFileSizeAppendMessage(): Unit = {
-    val seg = createSegment(40, false, 512*1024*1024, true)
+    val seg = createSegment(40, false, 512 * 1024 * 1024, true)
     val ms = records(50, "hello", "there")
     seg.append(51, RecordBatch.NO_TIMESTAMP, -1L, ms)
     val ms2 = records(60, "alpha", "beta")
@@ -513,7 +497,7 @@ class LogSegmentTest {
     val oldSize = seg.log.sizeInBytes()
     val oldPosition = seg.log.channel.position
     val oldFileSize = seg.log.file.length
-    assertEquals(512*1024*1024, oldFileSize)
+    assertEquals(512 * 1024 * 1024, oldFileSize)
     seg.close()
     //After close, file should be trimmed
     assertEquals(oldSize, seg.log.file.length)

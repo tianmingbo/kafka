@@ -127,7 +127,7 @@ object LogLoader extends Logging {
       // loading of segments. In that case, we also need to close all segments that could have been left open in previous
       // call to loadSegmentFiles().
       params.segments.close()
-      params.segments.c lear()
+      params.segments.clear()
       loadSegmentFiles(params)
     })
 

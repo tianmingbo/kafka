@@ -1,8 +1,8 @@
-/*
-Log Start Offset 值是整个 Log 对象对外可见消息的最小位移值。
-Log End Offset(LEO|nextOffsetMetadata) 永远指向下一条待插入消息
-High Watermark 高水位
-* */
+/**
+ * Log Start Offset 值是整个 Log 对象对外可见消息的最小位移值。
+ * Log End Offset(LEO|nextOffsetMetadata) 永远指向下一条待插入消息
+ * High Watermark 高水位,小于或等于 HW 值的所有消息被认为是“已提交的”或“已备份的”
+ * */
 package kafka.log
 
 import java.io.{File, IOException}
@@ -72,18 +72,18 @@ object LeaderHwChange {
  * @param firstOffset            The first offset in the message set unless the message format is less than V2 and we are appending
  *                               to the follower. If the message is a duplicate message the segment base offset and relative position
  *                               in segment will be unknown.
- * @param lastOffset             The last offset in the message set
+ * @param lastOffset             消息集合最后一条消息的位移值
  * @param lastLeaderEpoch        The partition leader epoch corresponding to the last offset, if available.
- * @param maxTimestamp           The maximum timestamp of the message set.
+ * @param maxTimestamp           消息集合最大消息时间戳
  * @param offsetOfMaxTimestamp   The offset of the message with the maximum timestamp.
- * @param logAppendTime          The log append time (if used) of the message set, otherwise Message.NoTimestamp
+ * @param logAppendTime          写入消息时间戳
  * @param logStartOffset         The start offset of the log at the time of this append.
  * @param recordConversionStats  Statistics collected during record processing, `null` if `assignOffsets` is `false`
  * @param sourceCodec            The source codec used in the message set (send by the producer)
  * @param targetCodec            The target codec of the message set(after applying the broker compression configuration if any)
  * @param shallowCount           The number of shallow messages
- * @param validBytes             The number of valid bytes
- * @param offsetsMonotonic       Are the offsets in this message set monotonically increasing
+ * @param validBytes             写入消息总字节数
+ * @param offsetsMonotonic       消息位移值是否是按顺序增加的
  * @param lastOffsetOfFirstBatch The last offset of the first batch
  * @param leaderHwChange         Incremental if the high watermark needs to be increased after appending record.
  *                               Same if high watermark is not changed. None is the default value and it means append failed
@@ -1212,10 +1212,10 @@ class Log(@volatile private var _dir: File,
   /**
    * Read messages from the log.
    *
-   * @param startOffset   The offset to begin reading at
-   * @param maxLength     The maximum number of bytes to read
+   * @param startOffset   从Log对象的哪个位移值开始读消息
+   * @param maxLength     最大读取多少字节
    * @param isolation     The fetch isolation, which controls the maximum offset we are allowed to read
-   * @param minOneMessage If this is true, the first message will be returned even if it exceeds `maxLength` (if one exists)
+   * @param minOneMessage 如果为true,至少返回一条消息,即使这条消息大于maxLength
    * @throws OffsetOutOfRangeException If startOffset is beyond the log end offset or before the log start offset
    * @return The fetch data information including fetch starting offset metadata and messages read.
    */
@@ -2158,7 +2158,7 @@ object Log extends Logging {
   }
 
   /**
-   * Construct an index file name in the given dir using the given base offset and the given suffix
+   * 构建一个偏移量索引文件名
    *
    * @param dir    The directory in which the log will reside
    * @param offset The base offset of the log file

@@ -443,11 +443,11 @@ public class FileRecords extends AbstractRecords implements Closeable {
      * For windows NTFS and some old LINUX file system, set preallocate to true and initFileSize
      * with one value (for example 512 * 1025 *1024 ) can improve the kafka produce performance.
      *
-     * @param file              File path
-     * @param mutable           mutable
-     * @param fileAlreadyExists File already exists or not
-     * @param initFileSize      The size used for pre allocate file, for example 512 * 1025 *1024
-     * @param preallocate       Pre-allocate file or not, gotten from configuration.
+     * @param file              文件对象
+     * @param mutable           是否可变
+     * @param fileAlreadyExists 文件是否已经存在
+     * @param initFileSize      初始文件大小
+     * @param preallocate       是否预分配空间
      */
     private static FileChannel openChannel(File file,
                                            boolean mutable,
@@ -456,6 +456,7 @@ public class FileRecords extends AbstractRecords implements Closeable {
                                            boolean preallocate) throws IOException {
         if (mutable) {
             if (fileAlreadyExists || !preallocate) {
+                //如果文件已存在或不需要预分配空间
                 return FileChannel.open(file.toPath(), StandardOpenOption.CREATE, StandardOpenOption.READ,
                         StandardOpenOption.WRITE);
             } else {
