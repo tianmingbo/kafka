@@ -63,18 +63,18 @@ public class MemoryRecords extends AbstractRecords {
     }
 
     /**
-     * Write all records to the given channel (including partial records).
+     * 将一个 Buffer 的内容完全写入到给定的 GatheringByteChannel 中
      * @param channel The channel to write to
      * @return The number of bytes written
      * @throws IOException For any IO errors writing to the channel
      */
     public int writeFullyTo(GatheringByteChannel channel) throws IOException {
-        buffer.mark();
+        buffer.mark(); // 标记当前的 Buffer 位置
         int written = 0;
         while (written < sizeInBytes())
-            written += channel.write(buffer);
-        buffer.reset();
-        return written;
+            written += channel.write(buffer); // 将 Buffer 内容写入到通道中
+        buffer.reset(); // 重置 Buffer 位置为之前的标记位置
+        return written; // 返回写入的总字节数
     }
 
     /**

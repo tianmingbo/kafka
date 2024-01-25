@@ -34,7 +34,8 @@ class LogSegmentTest {
 
   /* create a ByteBufferMessageSet for the given messages starting from the given offset */
   def records(offset: Long, records: String*): MemoryRecords = {
-    MemoryRecords.withRecords(RecordBatch.MAGIC_VALUE_V1, offset, CompressionType.NONE, TimestampType.CREATE_TIME,
+    MemoryRecords.withRecords(RecordBatch.MAGIC_VALUE_V1, offset,
+      CompressionType.NONE, TimestampType.CREATE_TIME,
       records.map { s => new SimpleRecord(offset * 10, s.getBytes) }: _*)
   }
 
@@ -60,8 +61,7 @@ class LogSegmentTest {
   }
 
   /**
-   * Reading from before the first offset in the segment should return messages
-   * beginning with the first message in the segment
+   * 在一个段中指定一个较小的偏移量来获取段中的所有消息，包括从第一条消息开始的消息。
    */
   @Test
   def testReadBeforeFirstOffset(): Unit = {

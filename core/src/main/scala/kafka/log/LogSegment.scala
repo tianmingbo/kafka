@@ -75,16 +75,16 @@ class LogSegment private[log](val log: FileRecords,
     else throw new NoSuchFileException(s"Offset index file ${lazyOffsetIndex.file.getAbsolutePath} does not exist")
   }
 
-  private var created = time.milliseconds
+  private var created = time.milliseconds //记录该log段的创建时间
 
-  /* the number of bytes since we last added an entry in the offset index */
+  /* 记录两个索引之间新增的字节数 */
   private var bytesSinceLastIndexEntry = 0
 
   // The timestamp we used for time based log rolling and for ensuring max compaction delay
   // volatile for LogCleaner to see the update
   @volatile private var rollingBasedTimestamp: Option[Long] = None
 
-  /* The maximum timestamp and offset we see so far
+  /* 到目前为止能看到的最大时间戳和偏移量
   * @volatile用于修饰变量，表示该变量在多线程环境中是可见的并且具有原子性
   *  */
   @volatile private var _maxTimestampAndOffsetSoFar: TimestampOffset = TimestampOffset.Unknown
@@ -138,7 +138,7 @@ class LogSegment private[log](val log: FileRecords,
         s"with largest timestamp $largestTimestamp at shallow offset $shallowOffsetOfMaxTimestamp")
       val physicalPosition = log.sizeInBytes()
       if (physicalPosition == 0)
-        rollingBasedTimestamp = Some(largestTimestamp)
+        rollingBasedTimestamp = Some(largestTimestamp) //记录写入的时间戳
       //确保输入参数最大位移值是合法的,
       ensureOffsetInRange(largestOffset)
 

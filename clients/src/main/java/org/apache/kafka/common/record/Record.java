@@ -1,19 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *    http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
 package org.apache.kafka.common.record;
 
 import java.nio.ByteBuffer;
@@ -30,24 +14,28 @@ public interface Record {
 
     /**
      * The offset of this record in the log
+     *
      * @return the offset
      */
     long offset();
 
     /**
      * Get the sequence number assigned by the producer.
+     *
      * @return the sequence number
      */
     int sequence();
 
     /**
      * Get the size in bytes of this record.
+     *
      * @return the size of the record in bytes
      */
     int sizeInBytes();
 
     /**
      * Get the record's timestamp.
+     *
      * @return the record's timestamp
      */
     long timestamp();
@@ -59,36 +47,42 @@ public interface Record {
 
     /**
      * Get the size in bytes of the key.
+     *
      * @return the size of the key, or -1 if there is no key
      */
     int keySize();
 
     /**
      * Check whether this record has a key
+     *
      * @return true if there is a key, false otherwise
      */
     boolean hasKey();
 
     /**
      * Get the record's key.
+     *
      * @return the key or null if there is none
      */
     ByteBuffer key();
 
     /**
      * Get the size in bytes of the value.
+     *
      * @return the size of the value, or -1 if the value is null
      */
     int valueSize();
 
     /**
      * Check whether a value is present (i.e. if the value is not null)
+     *
      * @return true if so, false otherwise
      */
     boolean hasValue();
 
     /**
      * Get the record's value
+     *
      * @return the (nullable) value
      */
     ByteBuffer value();
@@ -106,6 +100,7 @@ public interface Record {
     /**
      * For versions prior to 2, check whether the record is compressed (and therefore
      * has nested record content). For versions 2 and above, this always returns false.
+     *
      * @return true if the magic is lower than 2 and the record is compressed
      */
     boolean isCompressed();

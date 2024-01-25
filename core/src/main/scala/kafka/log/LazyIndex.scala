@@ -10,23 +10,15 @@ import kafka.utils.threadsafe
 import org.apache.kafka.common.utils.Utils
 
 /**
- * A wrapper over an `AbstractIndex` instance that provides a mechanism to defer loading
- * (i.e. memory mapping) the underlying index until it is accessed for the first time via the
- * `get` method.
+ * “AbstractIndex”实例的包装器，提供了一种延迟加载（即内存映射）底层索引的机制，直到通过“get”方法第一次访问它为止。
  *
- * In addition, this class exposes a number of methods (e.g. updateParentDir, renameTo, close,
- * etc.) that provide the desired behavior without causing the index to be loaded. If the index
- * had previously been loaded, the methods in this class simply delegate to the relevant method in
- * the index.
+ * 此外，此类公开了许多方法（例如 updateParentDir、renameTo、close 等），这些方法提供所需的行为而不会导致索引被加载。 如果索引先前已加载，则此类中的方法只需委托给索引中的相关方法。
  *
- * This is an important optimization with regards to broker start-up and shutdown time if it has a
- * large number of segments.
+ * 如果有大量段，这对于代理启动和关闭时间来说是一个重要的优化。
  *
- * Methods of this class are thread safe. Make sure to check `AbstractIndex` subclasses
- * documentation to establish their thread safety.
+ * 该类的方法是线程安全的。 请务必检查“AbstractIndex”子类文档以建立其线程安全性。
  *
- * @param loadIndex A function that takes a `File` pointing to an index and returns a loaded
- *                  `AbstractIndex` instance.
+ * @param loadIndex 一个函数，它接受一个指向索引的“File”并返回一个加载的“AbstractIndex”实例。
  */
 @threadsafe
 class LazyIndex[T <: AbstractIndex] private(@volatile private var indexWrapper: IndexWrapper, loadIndex: File => T) {
